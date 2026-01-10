@@ -1180,6 +1180,16 @@ body.playback-mode .status-dot {
   animation: cable-pulse 0.6s ease-in-out infinite;
 }
 
+.cable-path.cable-fault {
+  stroke: #ff4d4d;
+  filter: drop-shadow(0 0 4px #ff4d4d);
+}
+
+.cable-path.cable-degraded {
+  stroke: #ffcc00;
+  filter: drop-shadow(0 0 4px #ffcc00);
+}
+
 @keyframes cable-pulse {
   0%, 100% {
     opacity: 1;
@@ -1288,6 +1298,71 @@ body.playback-mode .status-dot {
 /* Cable popup header */
 .popup-header.cable {
   border-bottom-color: #00ffaa;
+}
+
+/* Cable advisory & repair ship markers */
+.cable-advisory-marker,
+.repair-ship-marker {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -50%) scale(var(--marker-scale, 1));
+  transform-origin: center;
+  cursor: pointer;
+  z-index: 16;
+}
+
+.cable-advisory-marker.fault {
+  --cable-advisory-color: #ff4d4d;
+  animation: cable-advisory-pulse 1.4s ease-in-out infinite;
+}
+
+.cable-advisory-marker.degraded {
+  --cable-advisory-color: #ffcc00;
+}
+
+.cable-advisory-icon {
+  font-size: 14px;
+  filter: drop-shadow(0 0 6px var(--cable-advisory-color, #ff4d4d));
+}
+
+.cable-advisory-label {
+  font-size: 8px;
+  color: var(--cable-advisory-color, #ff4d4d);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 2px;
+  white-space: nowrap;
+  text-shadow: 0 0 4px var(--bg), 0 0 8px var(--bg);
+}
+
+.repair-ship-marker {
+  --repair-ship-color: #5fd1ff;
+}
+
+.repair-ship-marker.on-station {
+  --repair-ship-color: #00ffaa;
+}
+
+.repair-ship-icon {
+  font-size: 14px;
+  filter: drop-shadow(0 0 6px var(--repair-ship-color, #5fd1ff));
+}
+
+.repair-ship-label {
+  font-size: 8px;
+  color: var(--repair-ship-color, #5fd1ff);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 2px;
+  white-space: nowrap;
+  text-shadow: 0 0 4px var(--bg), 0 0 8px var(--bg);
+}
+
+@keyframes cable-advisory-pulse {
+  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(var(--marker-scale, 1)); }
+  50% { opacity: 0.7; transform: translate(-50%, -50%) scale(calc(var(--marker-scale, 1) * 1.15)); }
 }
 
 /* Internet Outage markers */

@@ -324,6 +324,12 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/cloudflare-radar/, ''),
       },
+      // NGA Maritime Safety Information - Navigation Warnings
+      '/api/nga-msi': {
+        target: 'https://msi.nga.mil',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/nga-msi/, ''),
+      },
     },
   },
 });

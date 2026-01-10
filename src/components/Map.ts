@@ -1,7 +1,7 @@
 import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
-import type { MapLayers, Hotspot, NewsItem, Earthquake, InternetOutage, RelatedAsset, AssetType, AisDisruptionEvent, AisDensityZone } from '@/types';
+import type { MapLayers, Hotspot, NewsItem, Earthquake, InternetOutage, RelatedAsset, AssetType, AisDisruptionEvent, AisDensityZone, CableAdvisory, RepairShip } from '@/types';
 import type { WeatherAlert } from '@/services/weather';
 import { getSeverityColor } from '@/services/weather';
 import {
@@ -74,6 +74,8 @@ export class MapComponent {
   private outages: InternetOutage[] = [];
   private aisDisruptions: AisDisruptionEvent[] = [];
   private aisDensity: AisDensityZone[] = [];
+  private cableAdvisories: CableAdvisory[] = [];
+  private repairShips: RepairShip[] = [];
   private news: NewsItem[] = [];
   private popup: MapPopup;
   private onHotspotClick?: (hotspot: Hotspot) => void;
@@ -587,9 +589,13 @@ export class MapComponent {
         .curve(d3.curveCardinal);
 
       const isHighlighted = this.highlightedAssets.cable.has(cable.id);
+      const cableAdvisory = this.getCableAdvisory(cable.id);
+      const advisoryClass = cableAdvisory ? `cable-${cableAdvisory.severity}` : '';
+      const highlightClass = isHighlighted ? 'asset-highlight asset-highlight-cable' : '';
+
       const path = cableGroup
         .append('path')
-        .attr('class', `cable-path${isHighlighted ? ' asset-highlight asset-highlight-cable' : ''}`)
+        .attr('class', `cable-path ${advisoryClass} ${highlightClass}`.trim())
         .attr('d', lineGenerator(cable.points));
 
       path.append('title').text(cable.name);
@@ -1062,6 +1068,75 @@ export class MapComponent {
           this.popup.show({
             type: 'outage',
             data: outage,
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          });
+        });
+
+        this.overlays.appendChild(div);
+      });
+    }
+
+    // Cable advisories & repair ships
+    if (this.state.layers.cables && isGlobalOrMena) {
+      this.cableAdvisories.forEach((advisory) => {
+        const pos = projection([advisory.lon, advisory.lat]);
+        if (!pos) return;
+
+        const div = document.createElement('div');
+        div.className = `cable-advisory-marker ${advisory.severity}`;
+        div.style.left = `${pos[0]}px`;
+        div.style.top = `${pos[1]}px`;
+
+        const icon = document.createElement('div');
+        icon.className = 'cable-advisory-icon';
+        icon.textContent = advisory.severity === 'fault' ? '⚡' : '⚠';
+        div.appendChild(icon);
+
+        const label = document.createElement('div');
+        label.className = 'cable-advisory-label';
+        label.textContent = this.getCableName(advisory.cableId);
+        div.appendChild(label);
+
+        div.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const rect = this.container.getBoundingClientRect();
+          this.popup.show({
+            type: 'cable-advisory',
+            data: advisory,
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          });
+        });
+
+        this.overlays.appendChild(div);
+      });
+
+      this.repairShips.forEach((ship) => {
+        const pos = projection([ship.lon, ship.lat]);
+        if (!pos) return;
+
+        const div = document.createElement('div');
+        div.className = `repair-ship-marker ${ship.status}`;
+        div.style.left = `${pos[0]}px`;
+        div.style.top = `${pos[1]}px`;
+
+        const icon = document.createElement('div');
+        icon.className = 'repair-ship-icon';
+        icon.textContent = '🚢';
+        div.appendChild(icon);
+
+        const label = document.createElement('div');
+        label.className = 'repair-ship-label';
+        label.textContent = ship.name;
+        div.appendChild(label);
+
+        div.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const rect = this.container.getBoundingClientRect();
+          this.popup.show({
+            type: 'repair-ship',
+            data: ship,
             x: e.clientX - rect.left,
             y: e.clientY - rect.top,
           });
@@ -1762,6 +1837,25 @@ export class MapComponent {
     this.aisDisruptions = disruptions;
     this.aisDensity = density;
     this.render();
+  }
+
+  public setCableActivity(advisories: CableAdvisory[], repairShips: RepairShip[]): void {
+    this.cableAdvisories = advisories;
+    this.repairShips = repairShips;
+    this.popup.setCableActivity(advisories, repairShips);
+    this.render();
+  }
+
+  private getCableAdvisory(cableId: string): CableAdvisory | undefined {
+    const advisories = this.cableAdvisories.filter((advisory) => advisory.cableId === cableId);
+    return advisories.reduce<CableAdvisory | undefined>((latest, advisory) => {
+      if (!latest) return advisory;
+      return advisory.reported.getTime() > latest.reported.getTime() ? advisory : latest;
+    }, undefined);
+  }
+
+  private getCableName(cableId: string): string {
+    return UNDERSEA_CABLES.find((cable) => cable.id === cableId)?.name || cableId;
   }
 
   public getHotspotLevels(): Record<string, string> {

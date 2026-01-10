@@ -1,11 +1,12 @@
-import type { ConflictZone, Hotspot, Earthquake, NewsItem, MilitaryBase, StrategicWaterway, APTGroup, NuclearFacility, EconomicCenter, GammaIrradiator, Pipeline, UnderseaCable, InternetOutage, AIDataCenter, AisDisruptionEvent } from '@/types';
+import type { ConflictZone, Hotspot, Earthquake, NewsItem, MilitaryBase, StrategicWaterway, APTGroup, NuclearFacility, EconomicCenter, GammaIrradiator, Pipeline, UnderseaCable, CableAdvisory, RepairShip, InternetOutage, AIDataCenter, AisDisruptionEvent } from '@/types';
 import type { WeatherAlert } from '@/services/weather';
+import { UNDERSEA_CABLES } from '@/config';
 
-export type PopupType = 'conflict' | 'hotspot' | 'earthquake' | 'weather' | 'base' | 'waterway' | 'apt' | 'nuclear' | 'economic' | 'irradiator' | 'pipeline' | 'cable' | 'outage' | 'datacenter' | 'ais';
+export type PopupType = 'conflict' | 'hotspot' | 'earthquake' | 'weather' | 'base' | 'waterway' | 'apt' | 'nuclear' | 'economic' | 'irradiator' | 'pipeline' | 'cable' | 'cable-advisory' | 'repair-ship' | 'outage' | 'datacenter' | 'ais';
 
 interface PopupData {
   type: PopupType;
-  data: ConflictZone | Hotspot | Earthquake | WeatherAlert | MilitaryBase | StrategicWaterway | APTGroup | NuclearFacility | EconomicCenter | GammaIrradiator | Pipeline | UnderseaCable | InternetOutage | AIDataCenter | AisDisruptionEvent;
+  data: ConflictZone | Hotspot | Earthquake | WeatherAlert | MilitaryBase | StrategicWaterway | APTGroup | NuclearFacility | EconomicCenter | GammaIrradiator | Pipeline | UnderseaCable | CableAdvisory | RepairShip | InternetOutage | AIDataCenter | AisDisruptionEvent;
   relatedNews?: NewsItem[];
   x: number;
   y: number;
@@ -15,6 +16,8 @@ export class MapPopup {
   private container: HTMLElement;
   private popup: HTMLElement | null = null;
   private onClose?: () => void;
+  private cableAdvisories: CableAdvisory[] = [];
+  private repairShips: RepairShip[] = [];
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -65,6 +68,11 @@ export class MapPopup {
     this.onClose = callback;
   }
 
+  public setCableActivity(advisories: CableAdvisory[], repairShips: RepairShip[]): void {
+    this.cableAdvisories = advisories;
+    this.repairShips = repairShips;
+  }
+
   private renderContent(data: PopupData): string {
     switch (data.type) {
       case 'conflict':
@@ -91,6 +99,10 @@ export class MapPopup {
         return this.renderPipelinePopup(data.data as Pipeline);
       case 'cable':
         return this.renderCablePopup(data.data as UnderseaCable);
+      case 'cable-advisory':
+        return this.renderCableAdvisoryPopup(data.data as CableAdvisory);
+      case 'repair-ship':
+        return this.renderRepairShipPopup(data.data as RepairShip);
       case 'outage':
         return this.renderOutagePopup(data.data as InternetOutage);
       case 'datacenter':
@@ -574,10 +586,16 @@ export class MapPopup {
   }
 
   private renderCablePopup(cable: UnderseaCable): string {
+    const advisory = this.getLatestCableAdvisory(cable.id);
+    const repairShip = this.getPriorityRepairShip(cable.id);
+    const statusLabel = advisory ? (advisory.severity === 'fault' ? 'FAULT' : 'DEGRADED') : 'ACTIVE';
+    const statusBadge = advisory ? (advisory.severity === 'fault' ? 'high' : 'elevated') : 'low';
+    const repairEta = repairShip?.eta || advisory?.repairEta;
+
     return `
       <div class="popup-header cable">
         <span class="popup-title">🌐 ${cable.name.toUpperCase()}</span>
-        <span class="popup-badge elevated">${cable.major ? 'MAJOR' : 'CABLE'}</span>
+        <span class="popup-badge ${statusBadge}">${cable.major ? 'MAJOR' : 'CABLE'}</span>
         <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
@@ -593,12 +611,119 @@ export class MapPopup {
           </div>
           <div class="popup-stat">
             <span class="stat-label">STATUS</span>
-            <span class="stat-value">ACTIVE</span>
+            <span class="stat-value">${statusLabel}</span>
           </div>
+          ${repairEta ? `
+          <div class="popup-stat">
+            <span class="stat-label">REPAIR ETA</span>
+            <span class="stat-value">${repairEta}</span>
+          </div>
+          ` : ''}
         </div>
+        ${advisory ? `
+          <div class="popup-section">
+            <span class="section-label">FAULT ADVISORY</span>
+            <div class="popup-tags">
+              <span class="popup-tag">${advisory.title}</span>
+              <span class="popup-tag">${advisory.impact}</span>
+            </div>
+            <p class="popup-description">${advisory.description}</p>
+          </div>
+        ` : ''}
+        ${repairShip ? `
+          <div class="popup-section">
+            <span class="section-label">REPAIR DEPLOYMENT</span>
+            <div class="popup-tags">
+              <span class="popup-tag">${repairShip.name}</span>
+              <span class="popup-tag">${repairShip.status === 'on-station' ? 'On Station' : 'En Route'}</span>
+            </div>
+            <p class="popup-description">${repairShip.note || 'Repair vessel tracking indicates active deployment toward fault site.'}</p>
+          </div>
+        ` : ''}
         <p class="popup-description">Undersea telecommunications cable carrying international internet traffic. These fiber optic cables form the backbone of global internet connectivity, transmitting over 95% of intercontinental data.</p>
       </div>
     `;
+  }
+
+  private renderCableAdvisoryPopup(advisory: CableAdvisory): string {
+    const cable = UNDERSEA_CABLES.find((item) => item.id === advisory.cableId);
+    const timeAgo = this.getTimeAgo(advisory.reported);
+    const statusLabel = advisory.severity === 'fault' ? 'FAULT' : 'DEGRADED';
+
+    return `
+      <div class="popup-header cable">
+        <span class="popup-title">🚨 ${cable?.name.toUpperCase() || advisory.cableId.toUpperCase()}</span>
+        <span class="popup-badge ${advisory.severity === 'fault' ? 'high' : 'elevated'}">${statusLabel}</span>
+        <button class="popup-close">×</button>
+      </div>
+      <div class="popup-body">
+        <div class="popup-subtitle">${advisory.title}</div>
+        <div class="popup-stats">
+          <div class="popup-stat">
+            <span class="stat-label">REPORTED</span>
+            <span class="stat-value">${timeAgo}</span>
+          </div>
+          <div class="popup-stat">
+            <span class="stat-label">IMPACT</span>
+            <span class="stat-value">${advisory.impact}</span>
+          </div>
+          ${advisory.repairEta ? `
+          <div class="popup-stat">
+            <span class="stat-label">ETA</span>
+            <span class="stat-value">${advisory.repairEta}</span>
+          </div>
+          ` : ''}
+        </div>
+        <p class="popup-description">${advisory.description}</p>
+      </div>
+    `;
+  }
+
+  private renderRepairShipPopup(ship: RepairShip): string {
+    const cable = UNDERSEA_CABLES.find((item) => item.id === ship.cableId);
+
+    return `
+      <div class="popup-header cable">
+        <span class="popup-title">🚢 ${ship.name.toUpperCase()}</span>
+        <span class="popup-badge elevated">REPAIR SHIP</span>
+        <button class="popup-close">×</button>
+      </div>
+      <div class="popup-body">
+        <div class="popup-subtitle">${cable?.name || ship.cableId}</div>
+        <div class="popup-stats">
+          <div class="popup-stat">
+            <span class="stat-label">STATUS</span>
+            <span class="stat-value">${ship.status === 'on-station' ? 'ON STATION' : 'EN ROUTE'}</span>
+          </div>
+          <div class="popup-stat">
+            <span class="stat-label">ETA</span>
+            <span class="stat-value">${ship.eta}</span>
+          </div>
+          ${ship.operator ? `
+          <div class="popup-stat">
+            <span class="stat-label">OPERATOR</span>
+            <span class="stat-value">${ship.operator}</span>
+          </div>
+          ` : ''}
+        </div>
+        <p class="popup-description">${ship.note || 'Repair ship tracking indicates active deployment in support of undersea cable restoration.'}</p>
+      </div>
+    `;
+  }
+
+  private getLatestCableAdvisory(cableId: string): CableAdvisory | undefined {
+    const advisories = this.cableAdvisories.filter((item) => item.cableId === cableId);
+    return advisories.reduce<CableAdvisory | undefined>((latest, advisory) => {
+      if (!latest) return advisory;
+      return advisory.reported.getTime() > latest.reported.getTime() ? advisory : latest;
+    }, undefined);
+  }
+
+  private getPriorityRepairShip(cableId: string): RepairShip | undefined {
+    const ships = this.repairShips.filter((item) => item.cableId === cableId);
+    if (ships.length === 0) return undefined;
+    const onStation = ships.find((ship) => ship.status === 'on-station');
+    return onStation || ships[0];
   }
 
   private renderOutagePopup(outage: InternetOutage): string {

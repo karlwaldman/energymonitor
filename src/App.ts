@@ -10,7 +10,7 @@ import {
   DEFAULT_MAP_LAYERS,
   STORAGE_KEYS,
 } from '@/config';
-import { fetchCategoryFeeds, fetchMultipleStocks, fetchCrypto, fetchPredictions, fetchEarthquakes, fetchWeatherAlerts, fetchFredData, fetchInternetOutages, fetchAisSignals, initAisStream, getAisStatus, initDB, updateBaseline, calculateDeviation, analyzeCorrelations, clusterNews, addToSignalHistory, saveSnapshot, cleanOldSnapshots } from '@/services';
+import { fetchCategoryFeeds, fetchMultipleStocks, fetchCrypto, fetchPredictions, fetchEarthquakes, fetchWeatherAlerts, fetchFredData, fetchInternetOutages, fetchAisSignals, initAisStream, getAisStatus, fetchCableActivity, initDB, updateBaseline, calculateDeviation, analyzeCorrelations, clusterNews, addToSignalHistory, saveSnapshot, cleanOldSnapshots } from '@/services';
 import { buildMapUrl, debounce, loadFromStorage, parseMapUrlState, saveToStorage, ExportPanel } from '@/utils';
 import type { ParsedMapUrlState } from '@/utils';
 import {
@@ -960,6 +960,7 @@ export class App {
       this.loadFredData(),
       this.loadOutages(),
       this.loadAisSignals(),
+      this.loadCableActivity(),
     ]);
 
     // Update search index after all data loads
@@ -1159,7 +1160,6 @@ export class App {
         });
         this.statusPanel?.updateApi('AISStream', { status: 'ok' });
       } else {
-        // Not connected but no error - likely no API key
         this.statusPanel?.updateFeed('AIS', {
           status: aisStatus.vessels > 0 ? 'ok' : 'error',
           itemCount: disruptions.length + density.length,
@@ -1172,6 +1172,17 @@ export class App {
     } catch (error) {
       this.statusPanel?.updateFeed('AIS', { status: 'error', errorMessage: String(error) });
       this.statusPanel?.updateApi('AISStream', { status: 'error' });
+    }
+  }
+
+  private async loadCableActivity(): Promise<void> {
+    try {
+      const activity = await fetchCableActivity();
+      this.map?.setCableActivity(activity.advisories, activity.repairShips);
+      const itemCount = activity.advisories.length + activity.repairShips.length;
+      this.statusPanel?.updateFeed('CableOps', { status: 'ok', itemCount });
+    } catch {
+      this.statusPanel?.updateFeed('CableOps', { status: 'error' });
     }
   }
 
@@ -1218,5 +1229,6 @@ export class App {
     setInterval(() => this.loadFredData(), 30 * 60 * 1000);
     setInterval(() => this.loadOutages(), 60 * 60 * 1000); // 1 hour - Cloudflare rate limit
     setInterval(() => this.loadAisSignals(), REFRESH_INTERVALS.ais);
+    setInterval(() => this.loadCableActivity(), 30 * 60 * 1000);
   }
 }

@@ -197,6 +197,35 @@ export interface UnderseaCable {
   major?: boolean;
 }
 
+export type CableAdvisorySeverity = 'fault' | 'degraded';
+
+export interface CableAdvisory {
+  id: string;
+  cableId: string;
+  title: string;
+  severity: CableAdvisorySeverity;
+  description: string;
+  reported: Date;
+  lat: number;
+  lon: number;
+  impact: string;
+  repairEta?: string;
+}
+
+export type RepairShipStatus = 'enroute' | 'on-station';
+
+export interface RepairShip {
+  id: string;
+  name: string;
+  cableId: string;
+  status: RepairShipStatus;
+  lat: number;
+  lon: number;
+  eta: string;
+  operator?: string;
+  note?: string;
+}
+
 export interface ShippingChokepoint {
   id: string;
   name: string;
