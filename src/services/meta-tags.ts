@@ -37,6 +37,7 @@ export function updateMetaTagsForStory(meta: StoryMeta): void {
   if (ciiLevel) imageUrl += `&l=${ciiLevel}`;
 
   // Update standard meta tags
+  document.title = title;
   setMetaTag("title", title);
   setMetaTag("description", description);
   setCanonicalLink(storyUrl);
@@ -69,6 +70,7 @@ export function resetMetaTags(): void {
       ? "Live commodity prices, pipeline maps, vessel tracking, and energy market intelligence powered by OilPriceAPI."
       : "AI-powered real-time global intelligence dashboard with live news, markets, military tracking, and geopolitical data.";
 
+  document.title = defaultTitle;
   setMetaTag("title", defaultTitle);
   setMetaTag("description", defaultDesc);
   setCanonicalLink(BASE_URL);

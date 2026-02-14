@@ -46,12 +46,14 @@ function formatOPAPrice(price: number, currency: string): string {
   return `${symbol}${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function formatChange(change: number): string {
+function formatChange(change: number | null): string {
+  if (change === null || change === undefined) return "—";
   const sign = change >= 0 ? "+" : "";
   return `${sign}${change.toFixed(2)}%`;
 }
 
-function getChangeClass(change: number): string {
+function getChangeClass(change: number | null): string {
+  if (change === null || change === undefined) return "flat";
   if (change > 0) return "up";
   if (change < 0) return "down";
   return "flat";
