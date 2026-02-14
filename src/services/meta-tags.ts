@@ -15,14 +15,14 @@ interface StoryMeta {
 const BASE_URL =
   SITE_VARIANT === "energy"
     ? "https://energy-monitor.app"
-    : "https://worldmonitor.app";
+    : "https://energy-monitor.app";
 const DEFAULT_IMAGE = `${BASE_URL}/favico/og-image.png`;
 
 export function updateMetaTagsForStory(meta: StoryMeta): void {
   const { countryCode, countryName, ciiScore, ciiLevel, trend, type } = meta;
 
   // Generate dynamic content
-  const brand = SITE_VARIANT === "energy" ? "EnergyMonitor" : "World Monitor";
+  const brand = SITE_VARIANT === "energy" ? "EnergyMonitor" : "EnergyMonitor";
   const title = `${countryName} Intelligence Brief | ${brand}`;
   const description = generateDescription(
     ciiScore,
@@ -64,7 +64,7 @@ export function resetMetaTags(): void {
   const defaultTitle =
     SITE_VARIANT === "energy"
       ? "EnergyMonitor - Real-Time Energy Intelligence Dashboard"
-      : "World Monitor - Global Situation with AI Insights";
+      : "EnergyMonitor - Global Situation with AI Insights";
   const defaultDesc =
     SITE_VARIANT === "energy"
       ? "Live commodity prices, pipeline maps, vessel tracking, and energy market intelligence powered by OilPriceAPI."
@@ -124,7 +124,7 @@ function generateDescription(
     parts.push(typeDescriptions[type]);
   }
 
-  const brand = SITE_VARIANT === "energy" ? "EnergyMonitor" : "World Monitor";
+  const brand = SITE_VARIANT === "energy" ? "EnergyMonitor" : "EnergyMonitor";
   const tagline =
     SITE_VARIANT === "energy"
       ? "Real-time energy intelligence by OilPriceAPI."

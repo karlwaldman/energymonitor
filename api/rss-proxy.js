@@ -160,7 +160,7 @@ const ALLOWED_DOMAINS = [
   "news.ycombinator.com",
 ];
 
-// CORS helper - allow worldmonitor.app, energy-monitor.app, and Vercel preview domains
+// CORS helper - allow energy-monitor.app and Vercel preview domains
 function getCorsHeaders(req) {
   const origin = req.headers.get("origin") || "*";
   const allowedPatterns = [

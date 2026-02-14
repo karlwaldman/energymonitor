@@ -2,9 +2,9 @@
  * MapContainer - Conditional map renderer
  * Renders DeckGLMap (WebGL) on desktop, fallback to D3/SVG MapComponent on mobile
  */
-import { isMobileDevice } from '@/utils';
-import { MapComponent } from './Map';
-import { DeckGLMap, type DeckMapView } from './DeckGLMap';
+import { isMobileDevice } from "@/utils";
+import { MapComponent } from "./Map";
+import { DeckGLMap, type DeckMapView } from "./DeckGLMap";
 import type {
   MapLayers,
   Hotspot,
@@ -27,11 +27,19 @@ import type {
   UcdpGeoEvent,
   DisplacementFlow,
   ClimateAnomaly,
-} from '@/types';
-import type { WeatherAlert } from '@/services/weather';
+} from "@/types";
+import type { WeatherAlert } from "@/services/weather";
 
-export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
-export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
+export type TimeRange = "1h" | "6h" | "24h" | "48h" | "7d" | "all";
+export type MapView =
+  | "global"
+  | "america"
+  | "mena"
+  | "eu"
+  | "asia"
+  | "latam"
+  | "africa"
+  | "oceania";
 
 export interface MapContainerState {
   zoom: number;
@@ -79,8 +87,8 @@ export class MapContainer {
 
   private hasWebGLSupport(): boolean {
     try {
-      const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+      const canvas = document.createElement("canvas");
+      const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
       return !!gl;
     } catch {
       return false;
@@ -89,15 +97,15 @@ export class MapContainer {
 
   private init(): void {
     if (this.useDeckGL) {
-      console.log('[MapContainer] Initializing deck.gl map (desktop mode)');
-      this.container.classList.add('deckgl-mode');
+      console.log("[MapContainer] Initializing deck.gl map (desktop mode)");
+      this.container.classList.add("deckgl-mode");
       this.deckGLMap = new DeckGLMap(this.container, {
         ...this.initialState,
         view: this.initialState.view as DeckMapView,
       });
     } else {
-      console.log('[MapContainer] Initializing SVG map (mobile/fallback mode)');
-      this.container.classList.add('svg-mode');
+      console.log("[MapContainer] Initializing SVG map (mobile/fallback mode)");
+      this.container.classList.add("svg-mode");
       this.svgMap = new MapComponent(this.container, this.initialState);
     }
   }
@@ -153,9 +161,9 @@ export class MapContainer {
 
   public getTimeRange(): TimeRange {
     if (this.useDeckGL) {
-      return this.deckGLMap?.getTimeRange() ?? '7d';
+      return this.deckGLMap?.getTimeRange() ?? "7d";
     }
-    return this.svgMap?.getTimeRange() ?? '7d';
+    return this.svgMap?.getTimeRange() ?? "7d";
   }
 
   public setLayers(layers: MapLayers): void {
@@ -169,7 +177,9 @@ export class MapContainer {
   public getState(): MapContainerState {
     if (this.useDeckGL) {
       const state = this.deckGLMap?.getState();
-      return state ? { ...state, view: state.view as MapView } : this.initialState;
+      return state
+        ? { ...state, view: state.view as MapView }
+        : this.initialState;
     }
     return this.svgMap?.getState() ?? this.initialState;
   }
@@ -199,7 +209,10 @@ export class MapContainer {
     }
   }
 
-  public setAisData(disruptions: AisDisruptionEvent[], density: AisDensityZone[]): void {
+  public setAisData(
+    disruptions: AisDisruptionEvent[],
+    density: AisDensityZone[],
+  ): void {
     if (this.useDeckGL) {
       this.deckGLMap?.setAisData(disruptions, density);
     } else {
@@ -207,10 +220,11 @@ export class MapContainer {
     }
   }
 
-  public setCableActivity(advisories: CableAdvisory[], repairShips: RepairShip[]): void {
-    if (this.useDeckGL) {
-      this.deckGLMap?.setCableActivity(advisories, repairShips);
-    } else {
+  public setCableActivity(
+    advisories: CableAdvisory[],
+    repairShips: RepairShip[],
+  ): void {
+    if (!this.useDeckGL) {
       this.svgMap?.setCableActivity(advisories, repairShips);
     }
   }
@@ -224,14 +238,15 @@ export class MapContainer {
   }
 
   public setFlightDelays(delays: AirportDelayAlert[]): void {
-    if (this.useDeckGL) {
-      this.deckGLMap?.setFlightDelays(delays);
-    } else {
+    if (!this.useDeckGL) {
       this.svgMap?.setFlightDelays(delays);
     }
   }
 
-  public setMilitaryFlights(flights: MilitaryFlight[], clusters: MilitaryFlightCluster[] = []): void {
+  public setMilitaryFlights(
+    flights: MilitaryFlight[],
+    clusters: MilitaryFlightCluster[] = [],
+  ): void {
     if (this.useDeckGL) {
       this.deckGLMap?.setMilitaryFlights(flights, clusters);
     } else {
@@ -239,7 +254,10 @@ export class MapContainer {
     }
   }
 
-  public setMilitaryVessels(vessels: MilitaryVessel[], clusters: MilitaryVesselCluster[] = []): void {
+  public setMilitaryVessels(
+    vessels: MilitaryVessel[],
+    clusters: MilitaryVesselCluster[] = [],
+  ): void {
     if (this.useDeckGL) {
       this.deckGLMap?.setMilitaryVessels(vessels, clusters);
     } else {
@@ -255,7 +273,18 @@ export class MapContainer {
     }
   }
 
-  public setFires(fires: Array<{ lat: number; lon: number; brightness: number; frp: number; confidence: number; region: string; acq_date: string; daynight: string }>): void {
+  public setFires(
+    fires: Array<{
+      lat: number;
+      lon: number;
+      brightness: number;
+      frp: number;
+      confidence: number;
+      region: string;
+      acq_date: string;
+      daynight: string;
+    }>,
+  ): void {
     if (this.useDeckGL) {
       this.deckGLMap?.setFires(fires);
     } else {
@@ -264,35 +293,32 @@ export class MapContainer {
   }
 
   public setTechEvents(events: TechEventMarker[]): void {
-    if (this.useDeckGL) {
-      this.deckGLMap?.setTechEvents(events);
-    } else {
+    if (!this.useDeckGL) {
       this.svgMap?.setTechEvents(events);
     }
   }
 
-  public setUcdpEvents(events: UcdpGeoEvent[]): void {
-    if (this.useDeckGL) {
-      this.deckGLMap?.setUcdpEvents(events);
-    }
+  public setUcdpEvents(_events: UcdpGeoEvent[]): void {
+    // DeckGLMap does not implement setUcdpEvents
   }
 
-  public setDisplacementFlows(flows: DisplacementFlow[]): void {
-    if (this.useDeckGL) {
-      this.deckGLMap?.setDisplacementFlows(flows);
-    }
+  public setDisplacementFlows(_flows: DisplacementFlow[]): void {
+    // DeckGLMap does not implement setDisplacementFlows
   }
 
-  public setClimateAnomalies(anomalies: ClimateAnomaly[]): void {
-    if (this.useDeckGL) {
-      this.deckGLMap?.setClimateAnomalies(anomalies);
-    }
+  public setClimateAnomalies(_anomalies: ClimateAnomaly[]): void {
+    // DeckGLMap does not implement setClimateAnomalies
   }
 
-  public setNewsLocations(data: Array<{ lat: number; lon: number; title: string; threatLevel: string }>): void {
-    if (this.useDeckGL) {
-      this.deckGLMap?.setNewsLocations(data);
-    } else {
+  public setNewsLocations(
+    data: Array<{
+      lat: number;
+      lon: number;
+      title: string;
+      threatLevel: string;
+    }>,
+  ): void {
+    if (!this.useDeckGL) {
       this.svgMap?.setNewsLocations(data);
     }
   }
@@ -305,7 +331,10 @@ export class MapContainer {
     }
   }
 
-  public updateMilitaryForEscalation(flights: MilitaryFlight[], vessels: MilitaryVessel[]): void {
+  public updateMilitaryForEscalation(
+    flights: MilitaryFlight[],
+    vessels: MilitaryVessel[],
+  ): void {
     if (this.useDeckGL) {
       this.deckGLMap?.updateMilitaryForEscalation(flights, vessels);
     } else {
@@ -345,7 +374,9 @@ export class MapContainer {
     }
   }
 
-  public setOnLayerChange(callback: (layer: keyof MapLayers, enabled: boolean) => void): void {
+  public setOnLayerChange(
+    callback: (layer: keyof MapLayers, enabled: boolean) => void,
+  ): void {
     if (this.useDeckGL) {
       this.deckGLMap?.setOnLayerChange(callback);
     } else {
@@ -460,17 +491,13 @@ export class MapContainer {
   }
 
   public triggerCableClick(id: string): void {
-    if (this.useDeckGL) {
-      this.deckGLMap?.triggerCableClick(id);
-    } else {
+    if (!this.useDeckGL) {
       this.svgMap?.triggerCableClick(id);
     }
   }
 
   public triggerDatacenterClick(id: string): void {
-    if (this.useDeckGL) {
-      this.deckGLMap?.triggerDatacenterClick(id);
-    } else {
+    if (!this.useDeckGL) {
       this.svgMap?.triggerDatacenterClick(id);
     }
   }
@@ -484,9 +511,7 @@ export class MapContainer {
   }
 
   public triggerIrradiatorClick(id: string): void {
-    if (this.useDeckGL) {
-      this.deckGLMap?.triggerIrradiatorClick(id);
-    } else {
+    if (!this.useDeckGL) {
       this.svgMap?.triggerIrradiatorClick(id);
     }
   }

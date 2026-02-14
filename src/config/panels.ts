@@ -32,21 +32,17 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   energy: { name: "Energy & Resources", enabled: true, priority: 1 },
   gov: { name: "Government", enabled: true, priority: 1 },
   thinktanks: { name: "Think Tanks", enabled: true, priority: 1 },
-  polymarket: { name: "Predictions", enabled: true, priority: 1 },
   commodities: { name: "Commodities", enabled: true, priority: 1 },
   markets: { name: "Markets", enabled: true, priority: 1 },
   economic: { name: "Economic Indicators", enabled: true, priority: 1 },
   finance: { name: "Financial", enabled: true, priority: 1 },
   tech: { name: "Technology", enabled: true, priority: 2 },
-  crypto: { name: "Crypto", enabled: true, priority: 2 },
   heatmap: { name: "Sector Heatmap", enabled: true, priority: 2 },
   ai: { name: "AI/ML", enabled: true, priority: 2 },
   layoffs: { name: "Layoffs Tracker", enabled: true, priority: 2 },
   monitors: { name: "My Monitors", enabled: true, priority: 2 },
   "satellite-fires": { name: "Fires", enabled: true, priority: 2 },
   "macro-signals": { name: "Market Radar", enabled: true, priority: 2 },
-  "etf-flows": { name: "BTC ETF Tracker", enabled: true, priority: 2 },
-  stablecoins: { name: "Stablecoins", enabled: true, priority: 2 },
   "runtime-config": {
     name: "Desktop Configuration",
     enabled: true,
@@ -154,13 +150,11 @@ const TECH_PANELS: Record<string, PanelConfig> = {
   layoffs: { name: "Layoffs Tracker", enabled: true, priority: 1 },
   markets: { name: "Tech Stocks", enabled: true, priority: 2 },
   finance: { name: "Financial News", enabled: true, priority: 2 },
-  crypto: { name: "Crypto", enabled: true, priority: 2 },
   hardware: { name: "Semiconductors & Hardware", enabled: true, priority: 2 },
   cloud: { name: "Cloud & Infrastructure", enabled: true, priority: 2 },
   dev: { name: "Developer Community", enabled: true, priority: 2 },
   github: { name: "GitHub Trending", enabled: true, priority: 1 },
   ipo: { name: "IPO & SPAC", enabled: true, priority: 2 },
-  polymarket: { name: "Tech Predictions", enabled: true, priority: 2 },
   funding: { name: "Funding & VC", enabled: true, priority: 1 },
   producthunt: { name: "Product Hunt", enabled: true, priority: 1 },
   events: { name: "Tech Events", enabled: true, priority: 1 },
@@ -177,8 +171,6 @@ const TECH_PANELS: Record<string, PanelConfig> = {
     priority: 1,
   },
   "macro-signals": { name: "Market Radar", enabled: true, priority: 2 },
-  "etf-flows": { name: "BTC ETF Tracker", enabled: true, priority: 2 },
-  stablecoins: { name: "Stablecoins", enabled: true, priority: 2 },
   monitors: { name: "My Monitors", enabled: true, priority: 2 },
 };
 
@@ -377,8 +369,8 @@ export const MONITOR_COLORS = [
 ];
 
 export const STORAGE_KEYS = {
-  panels: "worldmonitor-panels",
-  monitors: "worldmonitor-monitors",
-  mapLayers: "worldmonitor-layers",
-  disabledFeeds: "worldmonitor-disabled-feeds",
+  panels: "energymonitor-panels",
+  monitors: "energymonitor-monitors",
+  mapLayers: "energymonitor-layers",
+  disabledFeeds: "energymonitor-disabled-feeds",
 } as const;

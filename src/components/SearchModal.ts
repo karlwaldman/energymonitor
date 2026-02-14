@@ -1,6 +1,25 @@
-import { escapeHtml } from '@/utils/sanitize';
+import { escapeHtml } from "@/utils/sanitize";
 
-export type SearchResultType = 'news' | 'hotspot' | 'market' | 'prediction' | 'conflict' | 'base' | 'pipeline' | 'cable' | 'datacenter' | 'earthquake' | 'outage' | 'nuclear' | 'irradiator' | 'techcompany' | 'ailab' | 'startup' | 'techevent' | 'techhq' | 'accelerator';
+export type SearchResultType =
+  | "news"
+  | "hotspot"
+  | "market"
+  | "prediction"
+  | "conflict"
+  | "base"
+  | "pipeline"
+  | "cable"
+  | "datacenter"
+  | "earthquake"
+  | "outage"
+  | "nuclear"
+  | "irradiator"
+  | "techcompany"
+  | "ailab"
+  | "startup"
+  | "techevent"
+  | "techhq"
+  | "accelerator";
 
 export interface SearchResult {
   type: SearchResultType;
@@ -15,7 +34,7 @@ interface SearchableSource {
   items: { id: string; title: string; subtitle?: string; data: unknown }[];
 }
 
-const RECENT_SEARCHES_KEY = 'worldmonitor_recent_searches';
+const RECENT_SEARCHES_KEY = "energymonitor_recent_searches";
 const MAX_RECENT = 8;
 const MAX_RESULTS = 24;
 
@@ -39,13 +58,19 @@ export class SearchModal {
 
   constructor(container: HTMLElement, options?: SearchModalOptions) {
     this.container = container;
-    this.placeholder = options?.placeholder || 'Search news, pipelines, bases, markets...';
-    this.hint = options?.hint || 'News • Pipelines • Bases • Cables • Datacenters • Markets';
+    this.placeholder =
+      options?.placeholder || "Search news, pipelines, bases, markets...";
+    this.hint =
+      options?.hint ||
+      "News • Pipelines • Bases • Cables • Datacenters • Markets";
     this.loadRecentSearches();
   }
 
-  public registerSource(type: SearchResultType, items: SearchableSource['items']): void {
-    const existingIndex = this.sources.findIndex(s => s.type === type);
+  public registerSource(
+    type: SearchResultType,
+    items: SearchableSource["items"],
+  ): void {
+    const existingIndex = this.sources.findIndex((s) => s.type === type);
     if (existingIndex >= 0) {
       this.sources[existingIndex] = { type, items };
     } else {
@@ -80,8 +105,8 @@ export class SearchModal {
   }
 
   private createModal(): void {
-    this.overlay = document.createElement('div');
-    this.overlay.className = 'search-overlay';
+    this.overlay = document.createElement("div");
+    this.overlay.className = "search-overlay";
     this.overlay.innerHTML = `
       <div class="search-modal">
         <div class="search-header">
@@ -98,21 +123,21 @@ export class SearchModal {
       </div>
     `;
 
-    this.overlay.addEventListener('click', (e) => {
+    this.overlay.addEventListener("click", (e) => {
       if (e.target === this.overlay) this.close();
     });
 
-    this.input = this.overlay.querySelector('.search-input');
-    this.resultsList = this.overlay.querySelector('.search-results');
+    this.input = this.overlay.querySelector(".search-input");
+    this.resultsList = this.overlay.querySelector(".search-results");
 
-    this.input?.addEventListener('input', () => this.handleSearch());
-    this.input?.addEventListener('keydown', (e) => this.handleKeydown(e));
+    this.input?.addEventListener("input", () => this.handleSearch());
+    this.input?.addEventListener("keydown", (e) => this.handleKeydown(e));
 
     this.container.appendChild(this.overlay);
   }
 
   private handleSearch(): void {
-    const query = this.input?.value.trim().toLowerCase() || '';
+    const query = this.input?.value.trim().toLowerCase() || "";
 
     if (!query) {
       this.showRecentOrEmpty();
@@ -120,15 +145,19 @@ export class SearchModal {
     }
 
     // Collect matches grouped by type
-    const byType = new Map<SearchResultType, (SearchResult & { _score: number })[]>();
+    const byType = new Map<
+      SearchResultType,
+      (SearchResult & { _score: number })[]
+    >();
 
     for (const source of this.sources) {
       for (const item of source.items) {
         const titleLower = item.title.toLowerCase();
-        const subtitleLower = item.subtitle?.toLowerCase() || '';
+        const subtitleLower = item.subtitle?.toLowerCase() || "";
 
         if (titleLower.includes(query) || subtitleLower.includes(query)) {
-          const isPrefix = titleLower.startsWith(query) || subtitleLower.startsWith(query);
+          const isPrefix =
+            titleLower.startsWith(query) || subtitleLower.startsWith(query);
           const result = {
             type: source.type,
             id: item.id,
@@ -146,10 +175,25 @@ export class SearchModal {
 
     // Prioritize: news first, then other dynamic data, then static infrastructure
     const priority: SearchResultType[] = [
-      'news', 'prediction', 'market', 'earthquake', 'outage',  // Dynamic/timely
-      'conflict', 'hotspot',  // Current events
-      'base', 'pipeline', 'cable', 'datacenter', 'nuclear', 'irradiator',  // Infrastructure
-      'techcompany', 'ailab', 'startup', 'techevent', 'techhq', 'accelerator'  // Tech
+      "news",
+      "prediction",
+      "market",
+      "earthquake",
+      "outage", // Dynamic/timely
+      "conflict",
+      "hotspot", // Current events
+      "base",
+      "pipeline",
+      "cable",
+      "datacenter",
+      "nuclear",
+      "irradiator", // Infrastructure
+      "techcompany",
+      "ailab",
+      "startup",
+      "techevent",
+      "techhq",
+      "accelerator", // Tech
     ];
 
     // Take top matches from each type, news gets more slots
@@ -157,7 +201,7 @@ export class SearchModal {
     for (const type of priority) {
       const matches = byType.get(type) || [];
       matches.sort((a, b) => b._score - a._score);
-      const limit = type === 'news' ? 6 : 3;  // News gets 6 slots, others get 3
+      const limit = type === "news" ? 6 : 3; // News gets 6 slots, others get 3
       this.results.push(...matches.slice(0, limit));
       if (this.results.length >= MAX_RESULTS) break;
     }
@@ -180,25 +224,26 @@ export class SearchModal {
   private renderRecent(): void {
     if (!this.resultsList) return;
 
-    this.resultsList.innerHTML = '<div class="search-section-header">Recent Searches</div>';
+    this.resultsList.innerHTML =
+      '<div class="search-section-header">Recent Searches</div>';
 
     this.recentSearches.forEach((term, i) => {
-      const item = document.createElement('div');
-      item.className = `search-result-item recent${i === this.selectedIndex ? ' selected' : ''}`;
+      const item = document.createElement("div");
+      item.className = `search-result-item recent${i === this.selectedIndex ? " selected" : ""}`;
       item.dataset.recent = term;
 
-      const icon = document.createElement('span');
-      icon.className = 'search-result-icon';
-      icon.textContent = '🕐';
+      const icon = document.createElement("span");
+      icon.className = "search-result-icon";
+      icon.textContent = "🕐";
 
-      const title = document.createElement('span');
-      title.className = 'search-result-title';
+      const title = document.createElement("span");
+      title.className = "search-result-title";
       title.textContent = term;
 
       item.appendChild(icon);
       item.appendChild(title);
 
-      item.addEventListener('click', () => {
+      item.addEventListener("click", () => {
         if (this.input) this.input.value = term;
         this.handleSearch();
       });
@@ -233,71 +278,78 @@ export class SearchModal {
     }
 
     const icons: Record<SearchResultType, string> = {
-      news: '📰',
-      hotspot: '📍',
-      market: '📈',
-      prediction: '🎯',
-      conflict: '⚔️',
-      base: '🏛️',
-      pipeline: '🛢',
-      cable: '🌐',
-      datacenter: '🖥️',
-      earthquake: '🌍',
-      outage: '📡',
-      nuclear: '☢️',
-      irradiator: '⚛️',
-      techcompany: '🏢',
-      ailab: '🧠',
-      startup: '🚀',
-      techevent: '📅',
-      techhq: '🦄',
-      accelerator: '🚀',
+      news: "📰",
+      hotspot: "📍",
+      market: "📈",
+      prediction: "🎯",
+      conflict: "⚔️",
+      base: "🏛️",
+      pipeline: "🛢",
+      cable: "🌐",
+      datacenter: "🖥️",
+      earthquake: "🌍",
+      outage: "📡",
+      nuclear: "☢️",
+      irradiator: "⚛️",
+      techcompany: "🏢",
+      ailab: "🧠",
+      startup: "🚀",
+      techevent: "📅",
+      techhq: "🦄",
+      accelerator: "🚀",
     };
 
-    this.resultsList.innerHTML = this.results.map((result, i) => `
-      <div class="search-result-item ${i === this.selectedIndex ? 'selected' : ''}" data-index="${i}">
+    this.resultsList.innerHTML = this.results
+      .map(
+        (result, i) => `
+      <div class="search-result-item ${i === this.selectedIndex ? "selected" : ""}" data-index="${i}">
         <span class="search-result-icon">${icons[result.type]}</span>
         <div class="search-result-content">
           <div class="search-result-title">${this.highlightMatch(result.title)}</div>
-          ${result.subtitle ? `<div class="search-result-subtitle">${escapeHtml(result.subtitle)}</div>` : ''}
+          ${result.subtitle ? `<div class="search-result-subtitle">${escapeHtml(result.subtitle)}</div>` : ""}
         </div>
         <span class="search-result-type">${escapeHtml(result.type)}</span>
       </div>
-    `).join('');
+    `,
+      )
+      .join("");
 
-    this.resultsList.querySelectorAll('.search-result-item').forEach((el) => {
-      el.addEventListener('click', () => {
-        const index = parseInt((el as HTMLElement).dataset.index || '0');
+    this.resultsList.querySelectorAll(".search-result-item").forEach((el) => {
+      el.addEventListener("click", () => {
+        const index = parseInt((el as HTMLElement).dataset.index || "0");
         this.selectResult(index);
       });
     });
   }
 
   private highlightMatch(text: string): string {
-    const query = this.input?.value.trim() || '';
+    const query = this.input?.value.trim() || "";
     const escapedText = escapeHtml(text);
     if (!query) return escapedText;
 
     const escapedQuery = escapeHtml(query);
-    const regex = new RegExp(`(${escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    return escapedText.replace(regex, '<mark>$1</mark>');
+    const regex = new RegExp(
+      `(${escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+      "gi",
+    );
+    return escapedText.replace(regex, "<mark>$1</mark>");
   }
 
   private handleKeydown(e: KeyboardEvent): void {
     switch (e.key) {
-      case 'ArrowDown':
+      case "ArrowDown":
         e.preventDefault();
         this.moveSelection(1);
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         e.preventDefault();
         this.moveSelection(-1);
         break;
-      case 'Enter':
+      case "Enter":
         e.preventDefault();
         this.selectResult(this.selectedIndex);
         break;
-      case 'Escape':
+      case "Escape":
         e.preventDefault();
         this.close();
         break;
@@ -315,12 +367,14 @@ export class SearchModal {
   private updateSelection(): void {
     if (!this.resultsList) return;
 
-    this.resultsList.querySelectorAll('.search-result-item').forEach((el, i) => {
-      el.classList.toggle('selected', i === this.selectedIndex);
-    });
+    this.resultsList
+      .querySelectorAll(".search-result-item")
+      .forEach((el, i) => {
+        el.classList.toggle("selected", i === this.selectedIndex);
+      });
 
-    const selected = this.resultsList.querySelector('.selected');
-    selected?.scrollIntoView({ block: 'nearest' });
+    const selected = this.resultsList.querySelector(".selected");
+    selected?.scrollIntoView({ block: "nearest" });
   }
 
   private selectResult(index: number): void {
@@ -338,7 +392,7 @@ export class SearchModal {
     if (!result) return;
 
     // Save to recent searches
-    this.saveRecentSearch(this.input?.value.trim() || '');
+    this.saveRecentSearch(this.input?.value.trim() || "");
 
     this.close();
     this.onSelect?.(result);
@@ -358,11 +412,14 @@ export class SearchModal {
 
     this.recentSearches = [
       term,
-      ...this.recentSearches.filter(t => t !== term)
+      ...this.recentSearches.filter((t) => t !== term),
     ].slice(0, MAX_RECENT);
 
     try {
-      localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(this.recentSearches));
+      localStorage.setItem(
+        RECENT_SEARCHES_KEY,
+        JSON.stringify(this.recentSearches),
+      );
     } catch {
       // Storage full, ignore
     }

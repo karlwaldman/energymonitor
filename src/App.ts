@@ -27,9 +27,6 @@ import {
 import {
   fetchCategoryFeeds,
   fetchMultipleStocks,
-  fetchCrypto,
-  fetchPredictions,
-  fetchEarthquakes,
   fetchWeatherAlerts,
   fetchFredData,
   fetchInternetOutages,
@@ -60,14 +57,12 @@ import {
   fetchRecentAwards,
   fetchOilAnalytics,
 } from "@/services";
-import { fetchCountryMarkets } from "@/services/polymarket";
 import { mlWorker } from "@/services/ml-worker";
 import { clusterNewsHybrid } from "@/services/clustering";
 import {
   ingestProtests,
   ingestFlights,
   ingestVessels,
-  ingestEarthquakes,
   detectGeoConvergence,
   geoConvergenceToSignal,
 } from "@/services/geo-convergence";
@@ -78,7 +73,6 @@ import {
   flattenFires,
   computeRegionStats,
 } from "@/services/firms-satellite";
-import { SatelliteFiresPanel } from "@/components/SatelliteFiresPanel";
 import {
   analyzeFlightsForSurge,
   surgeAlertToSignal,
@@ -93,25 +87,14 @@ import {
   ingestNewsForCII,
   ingestOutagesForCII,
   ingestConflictsForCII,
-  ingestUcdpForCII,
   ingestHapiForCII,
-  ingestDisplacementForCII,
-  ingestClimateForCII,
   startLearning,
   isInLearningMode,
   calculateCII,
 } from "@/services/country-instability";
 import { dataFreshness, type DataSourceId } from "@/services/data-freshness";
 import { fetchConflictEvents } from "@/services/conflicts";
-import { fetchUcdpClassifications } from "@/services/ucdp";
 import { fetchHapiSummary } from "@/services/hapi";
-import {
-  fetchUcdpEvents,
-  deduplicateAgainstAcled,
-} from "@/services/ucdp-events";
-import { fetchUnhcrPopulation } from "@/services/unhcr";
-import { fetchClimateAnomalies } from "@/services/climate";
-import { enrichEventsWithExposure } from "@/services/population-exposure";
 import {
   buildMapUrl,
   debounce,
@@ -133,8 +116,6 @@ import {
   MarketPanel,
   HeatmapPanel,
   CommoditiesPanel,
-  CryptoPanel,
-  PredictionPanel,
   MonitorPanel,
   Panel,
   SignalModal,
@@ -146,24 +127,12 @@ import {
   PizzIntIndicator,
   GdeltIntelPanel,
   LiveNewsPanel,
-  CIIPanel,
-  CascadePanel,
-  StrategicRiskPanel,
-  StrategicPosturePanel,
   IntelligenceGapBadge,
-  TechEventsPanel,
-  ServiceStatusPanel,
   RuntimeConfigPanel,
   InsightsPanel,
-  TechReadinessPanel,
   MacroSignalsPanel,
-  ETFFlowsPanel,
-  StablecoinPanel,
-  UcdpEventsPanel,
-  DisplacementPanel,
-  ClimateAnomalyPanel,
-  PopulationExposurePanel,
   OPAPricesPanel,
+  SatelliteFiresPanel,
 } from "@/components";
 import type { SearchResult } from "@/components/SearchModal";
 import { collectStoryData } from "@/services/story-data";
@@ -176,12 +145,6 @@ import {
   NUCLEAR_FACILITIES,
 } from "@/config/geo";
 import { PIPELINES } from "@/config/pipelines";
-import { AI_DATA_CENTERS } from "@/config/ai-datacenters";
-import { GAMMA_IRRADIATORS } from "@/config/irradiators";
-import { TECH_COMPANIES } from "@/config/tech-companies";
-import { AI_RESEARCH_LABS } from "@/config/ai-research-labs";
-import { STARTUP_ECOSYSTEMS } from "@/config/startup-ecosystems";
-import { TECH_HQS, ACCELERATORS } from "@/config/tech-geo";
 import { isDesktopRuntime } from "@/services/runtime";
 
 import type { PredictionMarket, MarketData, ClusteredEvent } from "@/types";
@@ -246,7 +209,7 @@ export class App {
       : DEFAULT_MAP_LAYERS;
 
     // Check if variant changed - reset all settings to variant defaults
-    const storedVariant = localStorage.getItem("worldmonitor-variant");
+    const storedVariant = localStorage.getItem("energymonitor-variant");
     const currentVariant = SITE_VARIANT;
     console.log(
       `[App] Variant check: stored="${storedVariant}", current="${currentVariant}"`,
@@ -254,7 +217,7 @@ export class App {
     if (storedVariant !== currentVariant) {
       // Variant changed - use defaults for new variant, clear old settings
       console.log("[App] Variant changed - resetting to defaults");
-      localStorage.setItem("worldmonitor-variant", currentVariant);
+      localStorage.setItem("energymonitor-variant", currentVariant);
       localStorage.removeItem(STORAGE_KEYS.mapLayers);
       localStorage.removeItem(STORAGE_KEYS.panels);
       localStorage.removeItem(this.PANEL_ORDER_KEY);
@@ -578,9 +541,6 @@ export class App {
       weather: ["weather"],
       outages: ["outages"],
       protests: ["acled"],
-      ucdpEvents: ["ucdp_events"],
-      displacement: ["unhcr"],
-      climate: ["climate"],
     };
 
     for (const [layer, sourceIds] of Object.entries(layerToSource)) {
@@ -680,10 +640,8 @@ export class App {
       // Update UI chip as soon as stock data arrives
       stockPromise.then((stock) => this.countryIntelModal!.updateStock(stock));
 
-      // Fetch country prediction markets
-      fetchCountryMarkets(geo.country)
-        .then((markets) => this.countryIntelModal!.updateMarkets(markets))
-        .catch(() => this.countryIntelModal!.updateMarkets([]));
+      // Prediction markets removed (polymarket service deleted)
+      this.countryIntelModal!.updateMarkets([]);
 
       try {
         const context: Record<string, unknown> = {};
@@ -984,10 +942,7 @@ export class App {
       this.showToast("Data still loading — try again in a moment");
       return;
     }
-    const posturePanel = this.panels["strategic-posture"] as
-      | StrategicPosturePanel
-      | undefined;
-    const postures = posturePanel?.getPostures() || [];
+    const postures: TheaterPostureSummary[] = [];
     const signals = this.getCountrySignals(code, name);
     const cluster = signalAggregator
       .getCountryClusters()
@@ -1040,167 +995,69 @@ export class App {
           };
     this.searchModal = new SearchModal(this.container, searchOptions);
 
-    if (SITE_VARIANT === "tech") {
-      // Tech variant: tech-specific sources
-      this.searchModal.registerSource(
-        "techcompany",
-        TECH_COMPANIES.map((c) => ({
-          id: c.id,
-          title: c.name,
-          subtitle:
-            `${c.sector} ${c.city} ${c.keyProducts?.join(" ") || ""}`.trim(),
-          data: c,
-        })),
-      );
+    // Geopolitical sources
+    this.searchModal.registerSource(
+      "hotspot",
+      INTEL_HOTSPOTS.map((h) => ({
+        id: h.id,
+        title: h.name,
+        subtitle:
+          `${h.subtext || ""} ${h.keywords?.join(" ") || ""} ${h.description || ""}`.trim(),
+        data: h,
+      })),
+    );
 
-      this.searchModal.registerSource(
-        "ailab",
-        AI_RESEARCH_LABS.map((l) => ({
-          id: l.id,
-          title: l.name,
-          subtitle:
-            `${l.type} ${l.city} ${l.focusAreas?.join(" ") || ""}`.trim(),
-          data: l,
-        })),
-      );
+    this.searchModal.registerSource(
+      "conflict",
+      CONFLICT_ZONES.map((c) => ({
+        id: c.id,
+        title: c.name,
+        subtitle:
+          `${c.parties?.join(" ") || ""} ${c.keywords?.join(" ") || ""} ${c.description || ""}`.trim(),
+        data: c,
+      })),
+    );
 
-      this.searchModal.registerSource(
-        "startup",
-        STARTUP_ECOSYSTEMS.map((s) => ({
-          id: s.id,
-          title: s.name,
-          subtitle:
-            `${s.ecosystemTier} ${s.topSectors?.join(" ") || ""} ${s.notableStartups?.join(" ") || ""}`.trim(),
-          data: s,
-        })),
-      );
+    this.searchModal.registerSource(
+      "base",
+      MILITARY_BASES.map((b) => ({
+        id: b.id,
+        title: b.name,
+        subtitle: `${b.type} ${b.description || ""}`.trim(),
+        data: b,
+      })),
+    );
 
-      this.searchModal.registerSource(
-        "datacenter",
-        AI_DATA_CENTERS.map((d) => ({
-          id: d.id,
-          title: d.name,
-          subtitle: `${d.owner} ${d.chipType || ""}`.trim(),
-          data: d,
-        })),
-      );
+    this.searchModal.registerSource(
+      "pipeline",
+      PIPELINES.map((p) => ({
+        id: p.id,
+        title: p.name,
+        subtitle:
+          `${p.type} ${p.operator || ""} ${p.countries?.join(" ") || ""}`.trim(),
+        data: p,
+      })),
+    );
 
-      this.searchModal.registerSource(
-        "cable",
-        UNDERSEA_CABLES.map((c) => ({
-          id: c.id,
-          title: c.name,
-          subtitle: c.major ? "Major internet backbone" : "Undersea cable",
-          data: c,
-        })),
-      );
+    this.searchModal.registerSource(
+      "cable",
+      UNDERSEA_CABLES.map((c) => ({
+        id: c.id,
+        title: c.name,
+        subtitle: c.major ? "Major cable" : "",
+        data: c,
+      })),
+    );
 
-      // Register Tech HQs (unicorns, FAANG, public companies from map)
-      this.searchModal.registerSource(
-        "techhq",
-        TECH_HQS.map((h) => ({
-          id: h.id,
-          title: h.company,
-          subtitle: `${h.type === "faang" ? "Big Tech" : h.type === "unicorn" ? "Unicorn" : "Public"} • ${h.city}, ${h.country}`,
-          data: h,
-        })),
-      );
-
-      // Register Accelerators
-      this.searchModal.registerSource(
-        "accelerator",
-        ACCELERATORS.map((a) => ({
-          id: a.id,
-          title: a.name,
-          subtitle: `${a.type} • ${a.city}, ${a.country}${a.notable ? ` • ${a.notable.slice(0, 2).join(", ")}` : ""}`,
-          data: a,
-        })),
-      );
-    } else {
-      // Full variant: geopolitical sources
-      this.searchModal.registerSource(
-        "hotspot",
-        INTEL_HOTSPOTS.map((h) => ({
-          id: h.id,
-          title: h.name,
-          subtitle:
-            `${h.subtext || ""} ${h.keywords?.join(" ") || ""} ${h.description || ""}`.trim(),
-          data: h,
-        })),
-      );
-
-      this.searchModal.registerSource(
-        "conflict",
-        CONFLICT_ZONES.map((c) => ({
-          id: c.id,
-          title: c.name,
-          subtitle:
-            `${c.parties?.join(" ") || ""} ${c.keywords?.join(" ") || ""} ${c.description || ""}`.trim(),
-          data: c,
-        })),
-      );
-
-      this.searchModal.registerSource(
-        "base",
-        MILITARY_BASES.map((b) => ({
-          id: b.id,
-          title: b.name,
-          subtitle: `${b.type} ${b.description || ""}`.trim(),
-          data: b,
-        })),
-      );
-
-      this.searchModal.registerSource(
-        "pipeline",
-        PIPELINES.map((p) => ({
-          id: p.id,
-          title: p.name,
-          subtitle:
-            `${p.type} ${p.operator || ""} ${p.countries?.join(" ") || ""}`.trim(),
-          data: p,
-        })),
-      );
-
-      this.searchModal.registerSource(
-        "cable",
-        UNDERSEA_CABLES.map((c) => ({
-          id: c.id,
-          title: c.name,
-          subtitle: c.major ? "Major cable" : "",
-          data: c,
-        })),
-      );
-
-      this.searchModal.registerSource(
-        "datacenter",
-        AI_DATA_CENTERS.map((d) => ({
-          id: d.id,
-          title: d.name,
-          subtitle: `${d.owner} ${d.chipType || ""}`.trim(),
-          data: d,
-        })),
-      );
-
-      this.searchModal.registerSource(
-        "nuclear",
-        NUCLEAR_FACILITIES.map((n) => ({
-          id: n.id,
-          title: n.name,
-          subtitle: `${n.type} ${n.operator || ""}`.trim(),
-          data: n,
-        })),
-      );
-
-      this.searchModal.registerSource(
-        "irradiator",
-        GAMMA_IRRADIATORS.map((g) => ({
-          id: g.id,
-          title: `${g.city}, ${g.country}`,
-          subtitle: g.organization || "",
-          data: g,
-        })),
-      );
-    }
+    this.searchModal.registerSource(
+      "nuclear",
+      NUCLEAR_FACILITIES.map((n) => ({
+        id: n.id,
+        title: n.name,
+        subtitle: `${n.type} ${n.operator || ""}`.trim(),
+        data: n,
+      })),
+    );
 
     // Handle result selection
     this.searchModal.setOnSelect((result) => this.handleSearchResult(result));
@@ -1251,10 +1108,6 @@ export class App {
         this.scrollToPanel("markets");
         break;
       }
-      case "prediction": {
-        this.scrollToPanel("polymarket");
-        break;
-      }
       case "base": {
         const base = result.data as (typeof MILITARY_BASES)[0];
         this.map?.setView("global");
@@ -1283,16 +1136,6 @@ export class App {
         }, 300);
         break;
       }
-      case "datacenter": {
-        const dc = result.data as (typeof AI_DATA_CENTERS)[0];
-        this.map?.setView("global");
-        this.map?.enableLayer("datacenters");
-        this.mapLayers.datacenters = true;
-        setTimeout(() => {
-          this.map?.triggerDatacenterClick(dc.id);
-        }, 300);
-        break;
-      }
       case "nuclear": {
         const nuc = result.data as (typeof NUCLEAR_FACILITIES)[0];
         this.map?.setView("global");
@@ -1303,74 +1146,11 @@ export class App {
         }, 300);
         break;
       }
-      case "irradiator": {
-        const irr = result.data as (typeof GAMMA_IRRADIATORS)[0];
-        this.map?.setView("global");
-        this.map?.enableLayer("irradiators");
-        this.mapLayers.irradiators = true;
-        setTimeout(() => {
-          this.map?.triggerIrradiatorClick(irr.id);
-        }, 300);
-        break;
-      }
       case "earthquake":
       case "outage":
         // These are dynamic, just switch to map view
         this.map?.setView("global");
         break;
-      case "techcompany": {
-        const company = result.data as (typeof TECH_COMPANIES)[0];
-        this.map?.setView("global");
-        this.map?.enableLayer("techHQs");
-        this.mapLayers.techHQs = true;
-        setTimeout(() => {
-          this.map?.setCenter(company.lat, company.lon, 4);
-        }, 300);
-        break;
-      }
-      case "ailab": {
-        const lab = result.data as (typeof AI_RESEARCH_LABS)[0];
-        this.map?.setView("global");
-        setTimeout(() => {
-          this.map?.setCenter(lab.lat, lab.lon, 4);
-        }, 300);
-        break;
-      }
-      case "startup": {
-        const ecosystem = result.data as (typeof STARTUP_ECOSYSTEMS)[0];
-        this.map?.setView("global");
-        this.map?.enableLayer("startupHubs");
-        this.mapLayers.startupHubs = true;
-        setTimeout(() => {
-          this.map?.setCenter(ecosystem.lat, ecosystem.lon, 4);
-        }, 300);
-        break;
-      }
-      case "techevent":
-        this.map?.setView("global");
-        this.map?.enableLayer("techEvents");
-        this.mapLayers.techEvents = true;
-        break;
-      case "techhq": {
-        const hq = result.data as (typeof TECH_HQS)[0];
-        this.map?.setView("global");
-        this.map?.enableLayer("techHQs");
-        this.mapLayers.techHQs = true;
-        setTimeout(() => {
-          this.map?.setCenter(hq.lat, hq.lon, 4);
-        }, 300);
-        break;
-      }
-      case "accelerator": {
-        const acc = result.data as (typeof ACCELERATORS)[0];
-        this.map?.setView("global");
-        this.map?.enableLayer("accelerators");
-        this.mapLayers.accelerators = true;
-        setTimeout(() => {
-          this.map?.setCenter(acc.lat, acc.lon, 4);
-        }, 300);
-        break;
-      }
     }
   }
 
@@ -1501,9 +1281,6 @@ export class App {
       liquidity: 0,
     }));
     this.latestPredictions = predictions;
-    (this.panels["polymarket"] as PredictionPanel).renderPredictions(
-      predictions,
-    );
 
     this.map?.setHotspotLevels(snapshot.hotspotLevels);
   }
@@ -1525,7 +1302,7 @@ export class App {
           `
               : `
           <div class="variant-switcher">
-            <a href="${this.isDesktopApp ? "#" : SITE_VARIANT === "tech" ? "https://worldmonitor.app" : "#"}"
+            <a href="${this.isDesktopApp ? "#" : SITE_VARIANT === "tech" ? "https://energy-monitor.app" : "#"}"
                class="variant-option ${SITE_VARIANT !== "tech" ? "active" : ""}"
                data-variant="full"
                ${!this.isDesktopApp && SITE_VARIANT === "tech" ? 'target="_blank" rel="noopener"' : ""}
@@ -1534,7 +1311,7 @@ export class App {
               <span class="variant-label">WORLD</span>
             </a>
             <span class="variant-divider"></span>
-            <a href="${this.isDesktopApp ? "#" : SITE_VARIANT === "tech" ? "#" : "https://tech.worldmonitor.app"}"
+            <a href="${this.isDesktopApp ? "#" : SITE_VARIANT === "tech" ? "#" : "https://tech.energy-monitor.app"}"
                class="variant-option ${SITE_VARIANT === "tech" ? "active" : ""}"
                data-variant="tech"
                ${!this.isDesktopApp && SITE_VARIANT !== "tech" ? 'target="_blank" rel="noopener"' : ""}
@@ -1548,7 +1325,7 @@ export class App {
             <svg class="x-logo" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
             <span class="credit-text">@eliehabib</span>
           </a>
-          <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener" class="github-link" title="View on GitHub">
+          <a href="https://github.com/karlwaldman/energymonitor" target="_blank" rel="noopener" class="github-link" title="View on GitHub">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
           </a>
           `
@@ -1837,9 +1614,6 @@ export class App {
     const opaPricesPanel = new OPAPricesPanel();
     this.panels["opa-prices"] = opaPricesPanel;
 
-    const predictionPanel = new PredictionPanel();
-    this.panels["polymarket"] = predictionPanel;
-
     const govPanel = new NewsPanel("gov", "Government / Policy");
     this.attachRelatedAssetHandlers(govPanel);
     this.newsPanels["gov"] = govPanel;
@@ -1849,9 +1623,6 @@ export class App {
     this.attachRelatedAssetHandlers(intelPanel);
     this.newsPanels["intel"] = intelPanel;
     this.panels["intel"] = intelPanel;
-
-    const cryptoPanel = new CryptoPanel();
-    this.panels["crypto"] = cryptoPanel;
 
     const middleeastPanel = new NewsPanel("middleeast", "Middle East / MENA");
     this.attachRelatedAssetHandlers(middleeastPanel);
@@ -1982,80 +1753,20 @@ export class App {
       const gdeltIntelPanel = new GdeltIntelPanel();
       this.panels["gdelt-intel"] = gdeltIntelPanel;
 
-      const ciiPanel = new CIIPanel();
-      ciiPanel.setShareStoryHandler((code, name) => {
-        this.openCountryStory(code, name);
-      });
-      this.panels["cii"] = ciiPanel;
-
-      const cascadePanel = new CascadePanel();
-      this.panels["cascade"] = cascadePanel;
-
       const satelliteFiresPanel = new SatelliteFiresPanel();
       this.panels["satellite-fires"] = satelliteFiresPanel;
-
-      const strategicRiskPanel = new StrategicRiskPanel();
-      strategicRiskPanel.setLocationClickHandler((lat, lon) => {
-        this.map?.setCenter(lat, lon, 4);
-      });
-      this.panels["strategic-risk"] = strategicRiskPanel;
-
-      const strategicPosturePanel = new StrategicPosturePanel();
-      strategicPosturePanel.setLocationClickHandler((lat, lon) => {
-        console.log("[App] StrategicPosture handler called:", {
-          lat,
-          lon,
-          hasMap: !!this.map,
-        });
-        this.map?.setCenter(lat, lon, 4);
-      });
-      this.panels["strategic-posture"] = strategicPosturePanel;
-
-      const ucdpEventsPanel = new UcdpEventsPanel();
-      ucdpEventsPanel.setEventClickHandler((lat, lon) => {
-        this.map?.setCenter(lat, lon, 5);
-      });
-      this.panels["ucdp-events"] = ucdpEventsPanel;
-
-      const displacementPanel = new DisplacementPanel();
-      displacementPanel.setCountryClickHandler((lat, lon) => {
-        this.map?.setCenter(lat, lon, 4);
-      });
-      this.panels["displacement"] = displacementPanel;
-
-      const climatePanel = new ClimateAnomalyPanel();
-      climatePanel.setZoneClickHandler((lat, lon) => {
-        this.map?.setCenter(lat, lon, 4);
-      });
-      this.panels["climate"] = climatePanel;
-
-      const populationExposurePanel = new PopulationExposurePanel();
-      this.panels["population-exposure"] = populationExposurePanel;
     }
 
     const liveNewsPanel = new LiveNewsPanel();
     this.panels["live-news"] = liveNewsPanel;
-
-    // Tech Events Panel (tech variant only - but create for all to allow toggling)
-    this.panels["events"] = new TechEventsPanel("events");
-
-    // Service Status Panel (primarily for tech variant)
-    const serviceStatusPanel = new ServiceStatusPanel();
-    this.panels["service-status"] = serviceStatusPanel;
 
     const runtimeConfigPanel = new RuntimeConfigPanel({
       mode: this.isDesktopApp ? "alert" : "full",
     });
     this.panels["runtime-config"] = runtimeConfigPanel;
 
-    // Tech Readiness Panel (tech variant only - World Bank tech indicators)
-    const techReadinessPanel = new TechReadinessPanel();
-    this.panels["tech-readiness"] = techReadinessPanel;
-
-    // Crypto & Market Intelligence Panels
+    // Market Intelligence Panels
     this.panels["macro-signals"] = new MacroSignalsPanel();
-    this.panels["etf-flows"] = new ETFFlowsPanel();
-    this.panels["stablecoins"] = new StablecoinPanel();
 
     // AI Insights Panel (desktop only - hides itself on mobile)
     const insightsPanel = new InsightsPanel();
@@ -2325,7 +2036,7 @@ export class App {
             const variant = link.dataset.variant;
             if (variant && variant !== SITE_VARIANT) {
               e.preventDefault();
-              localStorage.setItem("worldmonitor-variant", variant);
+              localStorage.setItem("energymonitor-variant", variant);
               window.location.reload();
             }
           });
@@ -2376,11 +2087,6 @@ export class App {
       }
     };
     document.addEventListener("visibilitychange", this.boundVisibilityHandler);
-
-    // Refresh CII when focal points are ready (ensures focal point urgency is factored in)
-    window.addEventListener("focal-points-ready", () => {
-      (this.panels["cii"] as CIIPanel)?.refresh(true); // forceLocal to use focal point data
-    });
 
     // Idle detection - pause animations after 2 minutes of inactivity
     this.setupIdleDetection();
@@ -2749,10 +2455,6 @@ export class App {
         task: runGuarded("markets", () => this.loadMarkets()),
       },
       {
-        name: "predictions",
-        task: runGuarded("predictions", () => this.loadPredictions()),
-      },
-      {
         name: "pizzint",
         task: runGuarded("pizzint", () => this.loadPizzInt()),
       },
@@ -2806,22 +2508,6 @@ export class App {
         name: "flights",
         task: runGuarded("flights", () => this.loadFlightDelays()),
       });
-    if (this.mapLayers.techEvents || SITE_VARIANT === "tech")
-      tasks.push({
-        name: "techEvents",
-        task: runGuarded("techEvents", () => this.loadTechEvents()),
-      });
-
-    // Tech Readiness panel (tech variant only)
-    if (SITE_VARIANT === "tech") {
-      tasks.push({
-        name: "techReadiness",
-        task: runGuarded("techReadiness", () =>
-          (this.panels["tech-readiness"] as TechReadinessPanel)?.refresh(),
-        ),
-      });
-    }
-
     // Use allSettled to ensure all tasks complete and search index always updates
     const results = await Promise.allSettled(tasks.map((t) => t.task));
 
@@ -2868,16 +2554,6 @@ export class App {
           break;
         case "military":
           await this.loadMilitary();
-          break;
-        case "techEvents":
-          console.log("[loadDataForLayer] Loading techEvents...");
-          await this.loadTechEvents();
-          console.log("[loadDataForLayer] techEvents loaded");
-          break;
-        case "ucdpEvents":
-        case "displacement":
-        case "climate":
-          await this.loadIntelligenceSignals();
           break;
       }
     } finally {
@@ -3193,6 +2869,9 @@ export class App {
     } catch (error) {
       console.error("[App] Clustering failed, clusters unchanged:", error);
     }
+
+    // Run correlation analysis (fire-and-forget via Web Worker)
+    void this.runCorrelationAnalysis();
   }
 
   private async loadMarkets(): Promise<void> {
@@ -3247,175 +2926,27 @@ export class App {
     } catch {
       this.statusPanel?.updateApi("Finnhub", { status: "error" });
     }
-
-    try {
-      // Crypto
-      const crypto = await fetchCrypto();
-      (this.panels["crypto"] as CryptoPanel).renderCrypto(crypto);
-      this.statusPanel?.updateApi("CoinGecko", { status: "ok" });
-    } catch {
-      this.statusPanel?.updateApi("CoinGecko", { status: "error" });
-    }
-  }
-
-  private async loadPredictions(): Promise<void> {
-    try {
-      const predictions = await fetchPredictions();
-      this.latestPredictions = predictions;
-      (this.panels["polymarket"] as PredictionPanel).renderPredictions(
-        predictions,
-      );
-
-      this.statusPanel?.updateFeed("Polymarket", {
-        status: "ok",
-        itemCount: predictions.length,
-      });
-      this.statusPanel?.updateApi("Polymarket", { status: "ok" });
-      dataFreshness.recordUpdate("polymarket", predictions.length);
-
-      // Run correlation analysis in background (fire-and-forget via Web Worker)
-      void this.runCorrelationAnalysis();
-    } catch (error) {
-      this.statusPanel?.updateFeed("Polymarket", {
-        status: "error",
-        errorMessage: String(error),
-      });
-      this.statusPanel?.updateApi("Polymarket", { status: "error" });
-      dataFreshness.recordError("polymarket", String(error));
-    }
   }
 
   private async loadNatural(): Promise<void> {
-    // Load both USGS earthquakes and NASA EONET natural events in parallel
-    const [earthquakeResult, eonetResult] = await Promise.allSettled([
-      fetchEarthquakes(),
-      fetchNaturalEvents(30),
-    ]);
-
-    // Handle earthquakes (USGS)
-    if (earthquakeResult.status === "fulfilled") {
-      this.map?.setEarthquakes(earthquakeResult.value);
-      ingestEarthquakes(earthquakeResult.value);
-      this.statusPanel?.updateApi("USGS", { status: "ok" });
-      dataFreshness.recordUpdate("usgs", earthquakeResult.value.length);
-    } else {
-      this.map?.setEarthquakes([]);
-      this.statusPanel?.updateApi("USGS", { status: "error" });
-      dataFreshness.recordError("usgs", String(earthquakeResult.reason));
-    }
-
-    // Handle natural events (EONET - storms, fires, volcanoes, etc.)
-    if (eonetResult.status === "fulfilled") {
-      this.map?.setNaturalEvents(eonetResult.value);
+    // Load NASA EONET natural events (storms, fires, volcanoes, etc.)
+    try {
+      const events = await fetchNaturalEvents(30);
+      this.map?.setNaturalEvents(events);
       this.statusPanel?.updateFeed("EONET", {
         status: "ok",
-        itemCount: eonetResult.value.length,
+        itemCount: events.length,
       });
       this.statusPanel?.updateApi("NASA EONET", { status: "ok" });
-    } else {
+      this.map?.setLayerReady("natural", events.length > 0);
+    } catch (error) {
       this.map?.setNaturalEvents([]);
       this.statusPanel?.updateFeed("EONET", {
         status: "error",
-        errorMessage: String(eonetResult.reason),
-      });
-      this.statusPanel?.updateApi("NASA EONET", { status: "error" });
-    }
-
-    // Set layer ready based on combined data
-    const hasEarthquakes =
-      earthquakeResult.status === "fulfilled" &&
-      earthquakeResult.value.length > 0;
-    const hasEonet =
-      eonetResult.status === "fulfilled" && eonetResult.value.length > 0;
-    this.map?.setLayerReady("natural", hasEarthquakes || hasEonet);
-  }
-
-  private async loadTechEvents(): Promise<void> {
-    console.log(
-      "[loadTechEvents] Called. SITE_VARIANT:",
-      SITE_VARIANT,
-      "techEvents layer:",
-      this.mapLayers.techEvents,
-    );
-    // Only load for tech variant or if techEvents layer is enabled
-    if (SITE_VARIANT !== "tech" && !this.mapLayers.techEvents) {
-      console.log(
-        "[loadTechEvents] Skipping - not tech variant and layer disabled",
-      );
-      return;
-    }
-
-    try {
-      const res = await fetch(
-        "/api/tech-events?type=conference&mappable=true&days=90&limit=50",
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Unknown error");
-
-      // Transform events for map markers
-      const now = new Date();
-      const mapEvents = data.events.map(
-        (e: {
-          id: string;
-          title: string;
-          location: string;
-          coords: { lat: number; lng: number; country: string };
-          startDate: string;
-          endDate: string;
-          url: string | null;
-        }) => ({
-          id: e.id,
-          title: e.title,
-          location: e.location,
-          lat: e.coords.lat,
-          lng: e.coords.lng,
-          country: e.coords.country,
-          startDate: e.startDate,
-          endDate: e.endDate,
-          url: e.url,
-          daysUntil: Math.ceil(
-            (new Date(e.startDate).getTime() - now.getTime()) /
-              (1000 * 60 * 60 * 24),
-          ),
-        }),
-      );
-
-      this.map?.setTechEvents(mapEvents);
-      this.map?.setLayerReady("techEvents", mapEvents.length > 0);
-      this.statusPanel?.updateFeed("Tech Events", {
-        status: "ok",
-        itemCount: mapEvents.length,
-      });
-
-      // Register tech events as searchable source
-      if (SITE_VARIANT === "tech" && this.searchModal) {
-        this.searchModal.registerSource(
-          "techevent",
-          mapEvents.map(
-            (e: {
-              id: string;
-              title: string;
-              location: string;
-              startDate: string;
-            }) => ({
-              id: e.id,
-              title: e.title,
-              subtitle: `${e.location} • ${new Date(e.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
-              data: e,
-            }),
-          ),
-        );
-      }
-    } catch (error) {
-      console.error("[App] Failed to load tech events:", error);
-      this.map?.setTechEvents([]);
-      this.map?.setLayerReady("techEvents", false);
-      this.statusPanel?.updateFeed("Tech Events", {
-        status: "error",
         errorMessage: String(error),
       });
+      this.statusPanel?.updateApi("NASA EONET", { status: "error" });
+      this.map?.setLayerReady("natural", false);
     }
   }
 
@@ -3536,21 +3067,6 @@ export class App {
       })(),
     );
 
-    // Fetch UCDP conflict classifications (war vs minor vs none)
-    tasks.push(
-      (async () => {
-        try {
-          const classifications = await fetchUcdpClassifications();
-          ingestUcdpForCII(classifications);
-          if (classifications.size > 0)
-            dataFreshness.recordUpdate("ucdp", classifications.size);
-        } catch (error) {
-          console.error("[Intelligence] UCDP fetch failed:", error);
-          dataFreshness.recordError("ucdp", String(error));
-        }
-      })(),
-    );
-
     // Fetch HDX HAPI aggregated conflict data (fallback/validation)
     tasks.push(
       (async () => {
@@ -3652,144 +3168,8 @@ export class App {
       })(),
     );
 
-    // Fetch UCDP georeferenced events (battles, one-sided violence, non-state conflict)
-    tasks.push(
-      (async () => {
-        try {
-          const [result, protestEvents] = await Promise.all([
-            fetchUcdpEvents(),
-            protestsTask,
-          ]);
-          if (!result.success) {
-            dataFreshness.recordError(
-              "ucdp_events",
-              "UCDP events unavailable (retaining prior event state)",
-            );
-            return;
-          }
-          const acledEvents = protestEvents.map((e) => ({
-            latitude: e.lat,
-            longitude: e.lon,
-            event_date: e.time.toISOString(),
-            fatalities: e.fatalities ?? 0,
-          }));
-          const events = deduplicateAgainstAcled(result.data, acledEvents);
-          (this.panels["ucdp-events"] as UcdpEventsPanel)?.setEvents(events);
-          if (this.mapLayers.ucdpEvents) {
-            this.map?.setUcdpEvents(events);
-          }
-          if (events.length > 0)
-            dataFreshness.recordUpdate("ucdp_events", events.length);
-        } catch (error) {
-          console.error("[Intelligence] UCDP events fetch failed:", error);
-          dataFreshness.recordError("ucdp_events", String(error));
-        }
-      })(),
-    );
-
-    // Fetch UNHCR displacement data (refugees, asylum seekers, IDPs)
-    tasks.push(
-      (async () => {
-        try {
-          const unhcrResult = await fetchUnhcrPopulation();
-          if (!unhcrResult.ok) {
-            dataFreshness.recordError(
-              "unhcr",
-              "UNHCR displacement unavailable (retaining prior displacement state)",
-            );
-            return;
-          }
-          const data = unhcrResult.data;
-          (this.panels["displacement"] as DisplacementPanel)?.setData(data);
-          ingestDisplacementForCII(data.countries);
-          if (this.mapLayers.displacement && data.topFlows) {
-            this.map?.setDisplacementFlows(data.topFlows);
-          }
-          if (data.countries.length > 0)
-            dataFreshness.recordUpdate("unhcr", data.countries.length);
-        } catch (error) {
-          console.error(
-            "[Intelligence] UNHCR displacement fetch failed:",
-            error,
-          );
-          dataFreshness.recordError("unhcr", String(error));
-        }
-      })(),
-    );
-
-    // Fetch climate anomalies (temperature/precipitation deviations)
-    tasks.push(
-      (async () => {
-        try {
-          const climateResult = await fetchClimateAnomalies();
-          if (!climateResult.ok) {
-            dataFreshness.recordError(
-              "climate",
-              "Climate anomalies unavailable (retaining prior climate state)",
-            );
-            return;
-          }
-          const anomalies = climateResult.anomalies;
-          (this.panels["climate"] as ClimateAnomalyPanel)?.setAnomalies(
-            anomalies,
-          );
-          ingestClimateForCII(anomalies);
-          if (this.mapLayers.climate) {
-            this.map?.setClimateAnomalies(anomalies);
-          }
-          if (anomalies.length > 0)
-            dataFreshness.recordUpdate("climate", anomalies.length);
-        } catch (error) {
-          console.error(
-            "[Intelligence] Climate anomalies fetch failed:",
-            error,
-          );
-          dataFreshness.recordError("climate", String(error));
-        }
-      })(),
-    );
-
     await Promise.allSettled(tasks);
-
-    // Fetch population exposure estimates after upstream intelligence loads complete.
-    // This avoids race conditions where UCDP/protest data is still in-flight.
-    try {
-      const ucdpEvts =
-        (this.panels["ucdp-events"] as UcdpEventsPanel)?.getEvents?.() || [];
-      const events = [
-        ...(this.intelligenceCache.protests?.events || [])
-          .slice(0, 10)
-          .map((e) => ({
-            id: e.id,
-            lat: e.lat,
-            lon: e.lon,
-            type: "conflict" as const,
-            name: e.title || "Protest",
-          })),
-        ...ucdpEvts.slice(0, 10).map((e) => ({
-          id: e.id,
-          lat: e.latitude,
-          lon: e.longitude,
-          type: e.type_of_violence as string,
-          name: `${e.side_a} vs ${e.side_b}`,
-        })),
-      ];
-      if (events.length > 0) {
-        const exposures = await enrichEventsWithExposure(events);
-        (
-          this.panels["population-exposure"] as PopulationExposurePanel
-        )?.setExposures(exposures);
-        if (exposures.length > 0)
-          dataFreshness.recordUpdate("worldpop", exposures.length);
-      }
-    } catch (error) {
-      console.error("[Intelligence] Population exposure fetch failed:", error);
-      dataFreshness.recordError("worldpop", String(error));
-    }
-
-    // Now trigger CII refresh with all intelligence data
-    (this.panels["cii"] as CIIPanel)?.refresh();
-    console.log("[Intelligence] All signals loaded for CII calculation");
+    console.log("[Intelligence] All signals loaded");
   }
 
   private async loadOutages(): Promise<void> {
@@ -3953,7 +3333,6 @@ export class App {
       if (protestCount > 0) dataFreshness.recordUpdate("acled", protestCount);
       if (protestData.sources.gdelt > 0)
         dataFreshness.recordUpdate("gdelt", protestData.sources.gdelt);
-      (this.panels["cii"] as CIIPanel)?.refresh();
       const status = getProtestStatus();
       this.statusPanel?.updateFeed("Protests", {
         status: "ok",
@@ -4065,7 +3444,6 @@ export class App {
         flightData.flights,
         vesselData.vessels,
       );
-      (this.panels["cii"] as CIIPanel)?.refresh();
       if (!isInLearningMode()) {
         const surgeAlerts = analyzeFlightsForSurge(flightData.flights);
         if (surgeAlerts.length > 0) {
@@ -4121,11 +3499,6 @@ export class App {
       const data = await fetchCachedTheaterPosture();
       if (data && data.postures.length > 0) {
         this.renderCriticalBanner(data.postures);
-        // Also update posture panel with shared data (saves a duplicate fetch)
-        const posturePanel = this.panels["strategic-posture"] as
-          | StrategicPosturePanel
-          | undefined;
-        posturePanel?.updatePostures(data);
       }
     } catch (error) {
       console.warn("[App] Failed to load cached postures for banner:", error);
@@ -4214,7 +3587,6 @@ export class App {
       if (this.latestClusters.length > 0) {
         ingestNewsForCII(this.latestClusters);
         dataFreshness.recordUpdate("gdelt", this.latestClusters.length);
-        (this.panels["cii"] as CIIPanel)?.refresh();
       }
 
       // Run correlation analysis off main thread via Web Worker
@@ -4345,7 +3717,7 @@ export class App {
   }
 
   private setupRefreshIntervals(): void {
-    // Always refresh news, markets, predictions, pizzint
+    // Always refresh news, markets, pizzint
     this.scheduleRefresh(
       "news",
       () => this.loadNews(),
@@ -4355,11 +3727,6 @@ export class App {
       "markets",
       () => this.loadMarkets(),
       REFRESH_INTERVALS.markets,
-    );
-    this.scheduleRefresh(
-      "predictions",
-      () => this.loadPredictions(),
-      REFRESH_INTERVALS.predictions,
     );
     this.scheduleRefresh("pizzint", () => this.loadPizzInt(), 10 * 60 * 1000);
 
