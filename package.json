@@ -1,14 +1,16 @@
 {
-  "name": "world-monitor",
+  "name": "energymonitor",
   "private": true,
   "version": "2.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:tech": "VITE_VARIANT=tech vite",
+    "dev:energy": "VITE_VARIANT=energy vite",
     "build": "tsc && vite build",
     "build:full": "VITE_VARIANT=full tsc && VITE_VARIANT=full vite build",
     "build:tech": "VITE_VARIANT=tech tsc && VITE_VARIANT=tech vite build",
+    "build:energy": "VITE_VARIANT=energy tsc && VITE_VARIANT=energy vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test:e2e:full": "VITE_VARIANT=full playwright test",
