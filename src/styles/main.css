@@ -201,6 +201,18 @@ body.animations-paused *::after {
   display: none;
 }
 
+/* Energy variant brand */
+.energy-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.energy-brand-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
 .status-indicator {
   display: flex;
   align-items: center;
