@@ -14,7 +14,7 @@ interface StoryMeta {
 
 const BASE_URL =
   SITE_VARIANT === "energy"
-    ? "https://energymonitor.app"
+    ? "https://energy-monitor.app"
     : "https://worldmonitor.app";
 const DEFAULT_IMAGE = `${BASE_URL}/favico/og-image.png`;
 

@@ -1,6 +1,7 @@
 const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/(.*\.)?worldmonitor\.app$/,
   /^https:\/\/(.*\.)?energymonitor\.app$/,
+  /^https:\/\/(.*\.)?energy-monitor\.app$/,
   /^https:\/\/monitor\.oilpriceapi\.com$/,
   /^https:\/\/.*-elie-habib-projects\.vercel\.app$/,
   /^https:\/\/.*karl-waldmans-projects\.vercel\.app$/,
@@ -25,7 +26,7 @@ export function getCorsHeaders(req, methods = "GET, OPTIONS") {
   const origin = req.headers.get("origin") || "";
   const allowOrigin = isAllowedOrigin(origin)
     ? origin
-    : "https://energymonitor.app";
+    : "https://energy-monitor.app";
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": methods,
