@@ -77,6 +77,10 @@ const vesselHistory = new Map();
 const densityGrid = new Map();
 const candidateReports = new Map();
 const tankerReports = new Map();
+// Ship type lookup from StaticData messages (AIS msg type 5/24)
+// AISstream PositionReport MetaData does NOT include ShipType
+const shipTypeLookup = new Map(); // mmsi -> shipType number
+const MAX_SHIP_TYPE_ENTRIES = 50000;
 
 let snapshotSequence = 0;
 let lastSnapshot = null;
@@ -102,13 +106,21 @@ function getGridKey(lat, lon) {
   return `${gridLat},${gridLon}`;
 }
 
+function getShipType(meta) {
+  // MetaData.ShipType is null in PositionReport — use lookup from StaticData
+  const metaType = Number(meta?.ShipType);
+  if (Number.isFinite(metaType) && metaType > 0) return metaType;
+  const mmsi = String(meta?.MMSI || "");
+  return shipTypeLookup.get(mmsi) || null;
+}
+
 function isLikelyMilitaryCandidate(meta) {
   const mmsi = String(meta?.MMSI || "");
-  const shipType = Number(meta?.ShipType);
+  const shipType = getShipType(meta);
   const name = (meta?.ShipName || "").trim().toUpperCase();
 
   if (
-    Number.isFinite(shipType) &&
+    shipType !== null &&
     (shipType === 35 || shipType === 55 || (shipType >= 50 && shipType <= 59))
   ) {
     return true;
@@ -125,8 +137,8 @@ function isLikelyMilitaryCandidate(meta) {
 }
 
 function isEnergyTanker(meta) {
-  const shipType = Number(meta?.ShipType);
-  return Number.isFinite(shipType) && shipType >= 80 && shipType <= 89;
+  const shipType = getShipType(meta);
+  return shipType !== null && shipType >= 80 && shipType <= 89;
 }
 
 function processPositionReportForSnapshot(data) {
@@ -933,6 +945,8 @@ const server = http.createServer(async (req, res) => {
         connected: upstreamSocket?.readyState === WebSocket.OPEN,
         vessels: vessels.size,
         tankers: tankerReports.size,
+        shipTypesKnown: shipTypeLookup.size,
+        military: candidateReports.size,
         densityZones: Array.from(densityGrid.values()).filter(
           (c) => c.vessels.size >= 2,
         ).length,
@@ -1192,7 +1206,7 @@ function connectUpstream() {
             [90, 180],
           ],
         ],
-        FilterMessageTypes: ["PositionReport"],
+        FilterMessageTypes: ["PositionReport", "ShipStaticData"],
       }),
     );
   });
@@ -1202,7 +1216,7 @@ function connectUpstream() {
     messageCount++;
     if (messageCount % 1000 === 0) {
       console.log(
-        `[Relay] ${messageCount} messages, ${clients.size} clients, cache: opensky=${openskyResponseCache.size} rss=${rssResponseCache.size}`,
+        `[Relay] ${messageCount} msgs, ${clients.size} clients, types=${shipTypeLookup.size}, tankers=${tankerReports.size}, military=${candidateReports.size}`,
       );
     }
     const message = data.toString();
@@ -1210,6 +1224,20 @@ function connectUpstream() {
       const parsed = JSON.parse(message);
       if (parsed?.MessageType === "PositionReport") {
         processPositionReportForSnapshot(parsed);
+      } else if (parsed?.MessageType === "ShipStaticData") {
+        // Extract ship type from Static Data messages (AIS type 5/24)
+        const meta = parsed?.MetaData;
+        const staticMsg = parsed?.Message?.ShipStaticData;
+        const mmsi = String(meta?.MMSI || "");
+        const type = Number(staticMsg?.Type);
+        if (mmsi && Number.isFinite(type) && type > 0) {
+          shipTypeLookup.set(mmsi, type);
+          // Evict oldest if too large (simple cap)
+          if (shipTypeLookup.size > MAX_SHIP_TYPE_ENTRIES) {
+            const firstKey = shipTypeLookup.keys().next().value;
+            shipTypeLookup.delete(firstKey);
+          }
+        }
       }
     } catch {
       // Ignore malformed upstream payloads
