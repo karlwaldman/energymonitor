@@ -73,6 +73,7 @@ import {
   flattenFires,
   computeRegionStats,
 } from "@/services/firms-satellite";
+import { fetchWellPermits } from "@/services/wells";
 import {
   analyzeFlightsForSurge,
   surgeAlertToSignal,
@@ -2481,6 +2482,11 @@ export class App {
         name: "firms",
         task: runGuarded("firms", () => this.loadFirmsData()),
       });
+    if (this.mapLayers.wells)
+      tasks.push({
+        name: "wells",
+        task: runGuarded("wells", () => this.loadWellPermits()),
+      });
     if (this.mapLayers.natural)
       tasks.push({
         name: "natural",
@@ -2552,6 +2558,9 @@ export class App {
           break;
         case "military":
           await this.loadMilitary();
+          break;
+        case "wells":
+          await this.loadWellPermits();
           break;
       }
     } finally {
@@ -3805,6 +3814,17 @@ export class App {
     }
   }
 
+  private async loadWellPermits(): Promise<void> {
+    try {
+      const wells = await fetchWellPermits();
+      if (wells.length > 0) {
+        this.map?.setWellPermits(wells);
+      }
+    } catch (e) {
+      console.warn("[App] Well permits load failed:", e);
+    }
+  }
+
   private scheduleRefresh(
     name: string,
     fn: () => Promise<void>,
@@ -3906,6 +3926,12 @@ export class App {
     // Non-intelligence layer refreshes only
     // NOTE: outages, protests, military are refreshed by intelligence schedule above
     this.scheduleRefresh("firms", () => this.loadFirmsData(), 30 * 60 * 1000);
+    this.scheduleRefresh(
+      "wells",
+      () => this.loadWellPermits(),
+      60 * 60 * 1000,
+      () => this.mapLayers.wells,
+    );
     this.scheduleRefresh(
       "ais",
       () => this.loadAisSignals(),

@@ -22,6 +22,7 @@ import type {
   MilitaryFlightCluster,
   MilitaryVesselCluster,
   NaturalEvent,
+  WellPermit,
 } from "@/types";
 import type { GeoHubActivity } from "@/services/geo-activity";
 
@@ -34,6 +35,7 @@ type TechHubActivity = {
   activityLevel: string;
 };
 import { getNaturalEventIcon } from "@/services/eonet";
+import { getWellStatusColor } from "@/services/wells";
 import type { WeatherAlert } from "@/services/weather";
 import { getSeverityColor } from "@/services/weather";
 import {
@@ -216,6 +218,7 @@ export class MapComponent {
   private militaryVessels: MilitaryVessel[] = [];
   private militaryVesselClusters: MilitaryVesselCluster[] = [];
   private naturalEvents: NaturalEvent[] = [];
+  private wellPermits: WellPermit[] = [];
   private firmsFireData: Array<{
     lat: number;
     lon: number;
@@ -478,7 +481,25 @@ export class MapComponent {
       "weather", // natural events
       "economic", // economic/geographic
     ];
-    const layers = SITE_VARIANT === "tech" ? techLayers : fullLayers;
+    const energyLayers: (keyof MapLayers)[] = [
+      "pipelines",
+      "ais",
+      "tankers",
+      "sanctions", // energy infrastructure
+      "wells", // well permits
+      "fires", // gas flares
+      "natural",
+      "weather", // natural events
+      "waterways",
+      "economic", // economic/geographic
+      "outages", // infrastructure
+    ];
+    const layers =
+      SITE_VARIANT === "tech"
+        ? techLayers
+        : SITE_VARIANT === "energy"
+          ? energyLayers
+          : fullLayers;
     const layerLabels: Partial<Record<keyof MapLayers, string>> = {
       ais: "Shipping",
       flights: "Delays",
@@ -2718,6 +2739,37 @@ export class MapComponent {
         this.overlays.appendChild(dot);
       });
     }
+
+    // Well Permits layer
+    if (this.state.layers.wells) {
+      this.wellPermits.forEach((well) => {
+        const pos = projection([well.lng, well.lat]);
+        if (!pos) return;
+
+        const [r, g, b] = getWellStatusColor(well.status);
+        const dot = document.createElement("div");
+        dot.className = "well-dot";
+        dot.style.left = `${pos[0]}px`;
+        dot.style.top = `${pos[1]}px`;
+        dot.style.width = "5px";
+        dot.style.height = "5px";
+        dot.style.backgroundColor = `rgb(${r},${g},${b})`;
+        dot.title = `${well.operator} — ${well.status} (${well.state})`;
+
+        dot.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const rect = this.container.getBoundingClientRect();
+          this.popup.show({
+            type: "well",
+            data: well,
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          });
+        });
+
+        this.overlays.appendChild(dot);
+      });
+    }
   }
 
   private renderWaterways(projection: d3.GeoProjection): void {
@@ -3685,6 +3737,11 @@ export class MapComponent {
 
   public setNaturalEvents(events: NaturalEvent[]): void {
     this.naturalEvents = events;
+    this.render();
+  }
+
+  public setWellPermits(wells: WellPermit[]): void {
+    this.wellPermits = wells;
     this.render();
   }
 

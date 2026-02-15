@@ -31,6 +31,7 @@ import type {
   MilitaryVesselCluster,
   NaturalEvent,
   MapProtestCluster,
+  WellPermit,
 } from "@/types";
 import type { WeatherAlert } from "@/services/weather";
 import type { AisPositionData } from "@/services/ais";
@@ -48,6 +49,7 @@ import {
   PORTS,
   CRITICAL_MINERALS,
 } from "@/config";
+import { getWellStatusColor } from "@/services/wells";
 import { MapPopup, type PopupType } from "./MapPopup";
 import {
   updateHotspotEscalation,
@@ -197,6 +199,7 @@ export class DeckGLMap {
     acq_date: string;
     daynight: string;
   }> = [];
+  private wellPermits: WellPermit[] = [];
   private news: NewsItem[] = [];
 
   // Country highlight state
@@ -630,6 +633,11 @@ export class DeckGLMap {
     // Critical minerals layer
     if (mapLayers.minerals) {
       layers.push(this.createMineralsLayer());
+    }
+
+    // Well permits layer (energy variant)
+    if (mapLayers.wells && this.wellPermits.length > 0) {
+      layers.push(this.createWellPermitsLayer());
     }
 
     const result = layers.filter(Boolean) as LayersList;
@@ -1121,6 +1129,35 @@ export class DeckGLMap {
       radiusMinPixels: 5,
       radiusMaxPixels: 12,
       pickable: true,
+    });
+  }
+
+  private createWellPermitsLayer(): ScatterplotLayer {
+    return new ScatterplotLayer<WellPermit>({
+      id: "wells-layer",
+      data: this.wellPermits,
+      getPosition: (d) => [d.lng, d.lat],
+      getRadius: 4000,
+      getFillColor: (d) => {
+        const [r, g, b] = getWellStatusColor(d.status);
+        return [r, g, b, 180] as [number, number, number, number];
+      },
+      radiusMinPixels: 3,
+      radiusMaxPixels: 10,
+      pickable: true,
+      onClick: (info: PickingInfo) => {
+        if (!info.object) return;
+        const well = info.object as WellPermit;
+        const rect = this.container.getBoundingClientRect();
+        const x = info.pixel?.[0] ?? 0;
+        const y = info.pixel?.[1] ?? 0;
+        this.popup.show({
+          type: "well" as PopupType,
+          data: well,
+          x: x + rect.left,
+          y: y + rect.top,
+        });
+      },
     });
   }
 
@@ -1677,6 +1714,7 @@ export class DeckGLMap {
       { key: "waterways", label: "Strategic Waterways", icon: "&#9875;" },
       { key: "economic", label: "Economic Centers", icon: "&#128176;" },
       { key: "minerals", label: "Critical Minerals", icon: "&#128142;" },
+      { key: "wells", label: "Well Permits", icon: "&#128738;" },
     ];
 
     toggles.innerHTML = `
@@ -2078,6 +2116,11 @@ export class DeckGLMap {
 
   public setNaturalEvents(events: NaturalEvent[]): void {
     this.naturalEvents = events;
+    this.render();
+  }
+
+  public setWellPermits(wells: WellPermit[]): void {
+    this.wellPermits = wells;
     this.render();
   }
 

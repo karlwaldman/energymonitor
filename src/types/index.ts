@@ -531,12 +531,25 @@ export interface MapLayers {
   ucdpEvents: boolean;
   displacement: boolean;
   climate: boolean;
+  // Energy variant layers
+  wells: boolean;
   // Tech variant layers
   startupHubs: boolean;
   cloudRegions: boolean;
   accelerators: boolean;
   techHQs: boolean;
   techEvents: boolean;
+}
+
+export interface WellPermit {
+  lat: number;
+  lng: number;
+  state: string;
+  operator: string;
+  type: string;
+  status: string;
+  date: string;
+  formation?: string;
 }
 
 export interface AIDataCenter {

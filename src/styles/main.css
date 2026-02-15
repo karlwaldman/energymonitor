@@ -3405,6 +3405,16 @@ body.playback-mode .status-dot {
   box-shadow: 0 0 4px currentColor;
 }
 
+.well-dot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  opacity: 0.8;
+  z-index: 53;
+  cursor: pointer;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.4);
+}
+
 .nat-event-marker {
   position: absolute;
   transform: translate(-50%, -50%) scale(var(--marker-scale, 1));

@@ -85,6 +85,8 @@ const FULL_MAP_LAYERS: MapLayers = {
   ucdpEvents: false,
   displacement: false,
   climate: false,
+  // Energy layers (disabled in full variant)
+  wells: false,
   // Tech layers (disabled in full variant)
   startupHubs: false,
   cloudRegions: false,
@@ -120,6 +122,8 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   ucdpEvents: false,
   displacement: false,
   climate: false,
+  // Energy layers (disabled in full variant)
+  wells: false,
   // Tech layers (disabled in full variant)
   startupHubs: false,
   cloudRegions: false,
@@ -203,6 +207,8 @@ const TECH_MAP_LAYERS: MapLayers = {
   ucdpEvents: false,
   displacement: false,
   climate: false,
+  // Energy layers (disabled in tech variant)
+  wells: false,
   // Tech layers (enabled in tech variant)
   startupHubs: true,
   cloudRegions: true,
@@ -238,6 +244,8 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   ucdpEvents: false,
   displacement: false,
   climate: false,
+  // Energy layers (disabled in tech variant)
+  wells: false,
   // Tech layers (limited on mobile)
   startupHubs: true,
   cloudRegions: false,
@@ -255,7 +263,7 @@ const ENERGY_PANELS: Record<string, PanelConfig> = {
   "live-news": { name: "Energy Headlines", enabled: true, priority: 1 },
   insights: { name: "AI Insights", enabled: true, priority: 1 },
   energy: { name: "Energy & Resources", enabled: true, priority: 1 },
-  commodities: { name: "Commodities", enabled: true, priority: 1 },
+  commodities: { name: "Commodities", enabled: false, priority: 3 },
   "eia-data": { name: "EIA Data", enabled: true, priority: 1 },
   "satellite-fires": { name: "Gas Flares & Fires", enabled: true, priority: 1 },
   middleeast: { name: "Middle East", enabled: true, priority: 1 },
@@ -293,6 +301,8 @@ const ENERGY_MAP_LAYERS: MapLayers = {
   ucdpEvents: false,
   displacement: false,
   climate: false,
+  // Energy layers
+  wells: true,
   // Tech layers (disabled in energy variant)
   startupHubs: false,
   cloudRegions: false,
@@ -328,6 +338,8 @@ const ENERGY_MOBILE_MAP_LAYERS: MapLayers = {
   ucdpEvents: false,
   displacement: false,
   climate: false,
+  // Energy layers (disabled on mobile)
+  wells: false,
   // Tech layers (disabled in energy variant)
   startupHubs: false,
   cloudRegions: false,

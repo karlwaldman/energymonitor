@@ -26,6 +26,7 @@ import type {
   Port,
   Spaceport,
   CriticalMineralProject,
+  WellPermit,
 } from "@/types";
 import type { WeatherAlert } from "@/services/weather";
 import { UNDERSEA_CABLES } from "@/config";
@@ -126,7 +127,8 @@ export type PopupType =
   | "techHQCluster"
   | "techEventCluster"
   | "techActivity"
-  | "geoActivity";
+  | "geoActivity"
+  | "well";
 
 interface TechEventPopupData {
   id: string;
@@ -204,7 +206,8 @@ interface PopupData {
     | ProtestClusterData
     | DatacenterClusterData
     | TechHubActivity
-    | GeoHubActivity;
+    | GeoHubActivity
+    | WellPermit;
   relatedNews?: NewsItem[];
   x: number;
   y: number;
@@ -418,6 +421,8 @@ export class MapPopup {
             country: string;
           },
         );
+      case "well":
+        return this.renderWellPopup(data.data as WellPermit);
       default:
         return "";
     }
@@ -2618,6 +2623,51 @@ export class MapPopup {
           </div>
         </div>
         <p class="popup-description">Strategic space launch facility. Launch cadence and orbit access capabilities are key geopolitical indicators.</p>
+      </div>
+    `;
+  }
+
+  private renderWellPopup(well: WellPermit): string {
+    const statusColors: Record<string, string> = {
+      approved: "elevated",
+      spudded: "elevated",
+      completed: "high",
+      pending: "normal",
+      canceled: "low",
+      expired: "low",
+    };
+
+    return `
+      <div class="popup-header well ${well.status}">
+        <span class="popup-icon">&#128738;</span>
+        <span class="popup-title">${escapeHtml(well.operator.toUpperCase())}</span>
+        <span class="popup-badge ${statusColors[well.status] || "normal"}">${escapeHtml(well.status.toUpperCase())}</span>
+        <button class="popup-close">×</button>
+      </div>
+      <div class="popup-body">
+        <div class="popup-subtitle">WELL PERMIT</div>
+        <div class="popup-stats">
+          <div class="popup-stat">
+            <span class="stat-label">STATE</span>
+            <span class="stat-value">${escapeHtml(well.state)}</span>
+          </div>
+          <div class="popup-stat">
+            <span class="stat-label">TYPE</span>
+            <span class="stat-value">${escapeHtml(well.type || "N/A")}</span>
+          </div>
+          <div class="popup-stat">
+            <span class="stat-label">PERMIT DATE</span>
+            <span class="stat-value">${escapeHtml(well.date || "N/A")}</span>
+          </div>
+          ${
+            well.formation
+              ? `<div class="popup-stat">
+            <span class="stat-label">FORMATION</span>
+            <span class="stat-value">${escapeHtml(well.formation)}</span>
+          </div>`
+              : ""
+          }
+        </div>
       </div>
     `;
   }

@@ -27,6 +27,7 @@ import type {
   UcdpGeoEvent,
   DisplacementFlow,
   ClimateAnomaly,
+  WellPermit,
 } from "@/types";
 import type { AisPositionData } from "@/services/ais";
 import type { WeatherAlert } from "@/services/weather";
@@ -278,6 +279,14 @@ export class MapContainer {
       this.deckGLMap?.setNaturalEvents(events);
     } else {
       this.svgMap?.setNaturalEvents(events);
+    }
+  }
+
+  public setWellPermits(wells: WellPermit[]): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.setWellPermits(wells);
+    } else {
+      this.svgMap?.setWellPermits(wells);
     }
   }
 
