@@ -59,7 +59,7 @@ function sendCompressed(req, res, statusCode, headers, body) {
 }
 
 // AIS aggregate state for snapshot API (server-side fanout)
-const GRID_SIZE = 2;
+const GRID_SIZE = 1; // Was 2 — too coarse, density centers appeared on land
 const DENSITY_WINDOW = 30 * 60 * 1000; // 30 minutes
 const GAP_THRESHOLD = 60 * 60 * 1000; // 1 hour
 const SNAPSHOT_INTERVAL_MS = Math.max(
@@ -67,7 +67,7 @@ const SNAPSHOT_INTERVAL_MS = Math.max(
   Number(process.env.AIS_SNAPSHOT_INTERVAL_MS || 5000),
 );
 const CANDIDATE_RETENTION_MS = 2 * 60 * 60 * 1000; // 2 hours
-const MAX_DENSITY_ZONES = 200;
+const MAX_DENSITY_ZONES = 400; // Bumped from 200 for 1-degree grid resolution
 const MAX_CANDIDATE_REPORTS = 1500;
 const MAX_TANKER_REPORTS = 3000;
 const TANKER_RETENTION_MS = 2 * 60 * 60 * 1000; // 2 hours
