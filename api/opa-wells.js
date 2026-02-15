@@ -48,16 +48,19 @@ export default async function handler(req) {
 
     const data = await response.json();
 
-    // Map to lightweight format for the frontend
-    const wells = (data.data || data.well_permits || []).map((w) => ({
-      lat: parseFloat(w.latitude) || 0,
-      lng: parseFloat(w.longitude) || 0,
-      state: w.state || "",
-      operator: w.operator || "Unknown",
-      type: w.well_type || w.type || "",
-      status: (w.status || "").toLowerCase(),
-      date: w.permit_date || w.date || "",
-      formation: w.formation || "",
+    // Response shape: { status, data: { well_permits: [...], meta: {...} } }
+    const permits = data?.data?.well_permits || [];
+
+    // Map nested structure to lightweight format for the frontend
+    const wells = permits.map((w) => ({
+      lat: parseFloat(w.location?.latitude) || 0,
+      lng: parseFloat(w.location?.longitude) || 0,
+      state: w.state_code || "",
+      operator: w.operator?.name || "Unknown",
+      type: w.permit_type || "",
+      status: (w.permit_status || "").toLowerCase(),
+      date: w.permit_date || "",
+      formation: w.target?.formation_normalized || w.target?.formation || "",
     }));
 
     return Response.json(
