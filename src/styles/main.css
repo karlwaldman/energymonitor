@@ -669,6 +669,22 @@ body.animations-paused *::after {
   color: var(--text);
 }
 
+.api-cta {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.api-cta:hover {
+  color: var(--green);
+  border-color: var(--green);
+}
+
 .panel-count {
   font-size: 10px;
   color: var(--text-dim);
