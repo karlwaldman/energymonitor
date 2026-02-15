@@ -28,6 +28,7 @@ import type {
   DisplacementFlow,
   ClimateAnomaly,
 } from "@/types";
+import type { AisPositionData } from "@/services/ais";
 import type { WeatherAlert } from "@/services/weather";
 
 export type TimeRange = "1h" | "6h" | "24h" | "48h" | "7d" | "all";
@@ -263,6 +264,13 @@ export class MapContainer {
     } else {
       this.svgMap?.setMilitaryVessels(vessels, clusters);
     }
+  }
+
+  public setTankerVessels(tankers: AisPositionData[]): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.setTankerVessels(tankers);
+    }
+    // SVG map doesn't render tanker vessels
   }
 
   public setNaturalEvents(events: NaturalEvent[]): void {

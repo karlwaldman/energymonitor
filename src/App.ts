@@ -3206,14 +3206,16 @@ export class App {
 
   private async loadAisSignals(): Promise<void> {
     try {
-      const { disruptions, density } = await fetchAisSignals();
+      const { disruptions, density, tankers } = await fetchAisSignals();
       const aisStatus = getAisStatus();
       console.log("[Ships] Events:", {
         disruptions: disruptions.length,
         density: density.length,
+        tankers: tankers.length,
         vessels: aisStatus.vessels,
       });
       this.map?.setAisData(disruptions, density);
+      this.map?.setTankerVessels(tankers);
       signalAggregator.ingestAisDisruptions(disruptions);
       // Temporal baseline: report AIS gap counts
       updateAndCheck([

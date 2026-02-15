@@ -33,6 +33,7 @@ import type {
   MapProtestCluster,
 } from "@/types";
 import type { WeatherAlert } from "@/services/weather";
+import type { AisPositionData } from "@/services/ais";
 import { escapeHtml } from "@/utils/sanitize";
 import { debounce, rafSchedule } from "@/utils/index";
 import {
@@ -124,6 +125,7 @@ const COLORS = {
   nuclear: [255, 215, 0, 200] as [number, number, number, number],
   earthquake: [255, 100, 50, 200] as [number, number, number, number],
   vesselMilitary: [255, 100, 100, 220] as [number, number, number, number],
+  vesselTanker: [255, 165, 50, 200] as [number, number, number, number],
   flightMilitary: [255, 50, 50, 220] as [number, number, number, number],
   protest: [255, 150, 0, 200] as [number, number, number, number],
   outage: [255, 50, 50, 180] as [number, number, number, number],
@@ -183,6 +185,7 @@ export class DeckGLMap {
   private militaryFlightClusters: MilitaryFlightCluster[] = [];
   private militaryVessels: MilitaryVessel[] = [];
   private militaryVesselClusters: MilitaryVesselCluster[] = [];
+  private tankerVessels: AisPositionData[] = [];
   private naturalEvents: NaturalEvent[] = [];
   private firmsFireData: Array<{
     lat: number;
@@ -609,6 +612,11 @@ export class DeckGLMap {
       layers.push(this.createMilitaryFlightClustersLayer());
     }
 
+    // Oil & LNG tanker vessels layer
+    if (mapLayers.tankers && this.tankerVessels.length > 0) {
+      layers.push(this.createTankerVesselsLayer());
+    }
+
     // Strategic waterways layer
     if (mapLayers.waterways) {
       layers.push(this.createWaterwaysLayer());
@@ -995,6 +1003,19 @@ export class DeckGLMap {
     });
   }
 
+  private createTankerVesselsLayer(): ScatterplotLayer {
+    return new ScatterplotLayer({
+      id: "tanker-vessels-layer",
+      data: this.tankerVessels,
+      getPosition: (d) => [d.lon, d.lat],
+      getRadius: 5000,
+      getFillColor: COLORS.vesselTanker,
+      radiusMinPixels: 3,
+      radiusMaxPixels: 8,
+      pickable: true,
+    });
+  }
+
   private createMilitaryVesselClustersLayer(): ScatterplotLayer {
     return new ScatterplotLayer({
       id: "military-vessel-clusters-layer",
@@ -1336,6 +1357,23 @@ export class DeckGLMap {
         return {
           html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(obj.operatorCountry)}</div>`,
         };
+      case "tanker-vessels-layer": {
+        const shipType = Number(obj.shipType);
+        const tankerType =
+          shipType === 81
+            ? "Crude Oil"
+            : shipType === 82
+              ? "LNG/Chemical"
+              : shipType === 83
+                ? "Chemical"
+                : "Tanker";
+        const speed = Number.isFinite(obj.speed)
+          ? `${obj.speed.toFixed(1)} kn`
+          : "";
+        return {
+          html: `<div class="deckgl-tooltip"><strong>${text(obj.name || "Unknown Tanker")}</strong><br/>${tankerType}${speed ? ` · ${speed}` : ""}</div>`,
+        };
+      }
       case "military-flights-layer":
         return {
           html: `<div class="deckgl-tooltip"><strong>${text(obj.callsign || obj.registration || "Military Aircraft")}</strong><br/>${text(obj.type)}</div>`,
@@ -1630,6 +1668,7 @@ export class DeckGLMap {
       { key: "pipelines", label: "Pipelines", icon: "&#128738;" },
       { key: "military", label: "Military Activity", icon: "&#9992;" },
       { key: "ais", label: "Ship Traffic", icon: "&#128674;" },
+      { key: "tankers", label: "Oil & LNG Tankers", icon: "&#9981;" },
       { key: "protests", label: "Protests", icon: "&#128226;" },
       { key: "weather", label: "Weather Alerts", icon: "&#9928;" },
       { key: "outages", label: "Internet Outages", icon: "&#128225;" },
@@ -2029,6 +2068,11 @@ export class DeckGLMap {
   ): void {
     this.militaryVessels = vessels;
     this.militaryVesselClusters = clusters;
+    this.render();
+  }
+
+  public setTankerVessels(tankers: AisPositionData[]): void {
+    this.tankerVessels = tankers;
     this.render();
   }
 

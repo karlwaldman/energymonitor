@@ -80,6 +80,7 @@ const FULL_MAP_LAYERS: MapLayers = {
   spaceports: false,
   minerals: false,
   fires: false,
+  tankers: false,
   // Data source layers
   ucdpEvents: false,
   displacement: false,
@@ -114,6 +115,7 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   spaceports: false,
   minerals: false,
   fires: false,
+  tankers: false,
   // Data source layers
   ucdpEvents: false,
   displacement: false,
@@ -196,6 +198,7 @@ const TECH_MAP_LAYERS: MapLayers = {
   spaceports: false,
   minerals: false,
   fires: false,
+  tankers: false,
   // Data source layers
   ucdpEvents: false,
   displacement: false,
@@ -230,6 +233,7 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   spaceports: false,
   minerals: false,
   fires: false,
+  tankers: false,
   // Data source layers
   ucdpEvents: false,
   displacement: false,
@@ -284,6 +288,7 @@ const ENERGY_MAP_LAYERS: MapLayers = {
   spaceports: false,
   minerals: false,
   fires: true,
+  tankers: true,
   // Data source layers
   ucdpEvents: false,
   displacement: false,
@@ -318,6 +323,7 @@ const ENERGY_MOBILE_MAP_LAYERS: MapLayers = {
   spaceports: false,
   minerals: false,
   fires: true,
+  tankers: true,
   // Data source layers
   ucdpEvents: false,
   displacement: false,
