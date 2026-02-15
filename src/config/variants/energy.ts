@@ -18,7 +18,7 @@ export const DEFAULT_PANELS: Record<string, PanelConfig> = {
   "live-news": { name: "Event Stream", enabled: true, priority: 1 },
   insights: { name: "AI Insights", enabled: true, priority: 1 },
   energy: { name: "Energy & Resources", enabled: true, priority: 1 },
-  commodities: { name: "Commodities", enabled: true, priority: 1 },
+  commodities: { name: "Commodities", enabled: false, priority: 3 },
   "eia-data": { name: "EIA Data", enabled: true, priority: 1 },
   "satellite-fires": { name: "Gas Flares & Fires", enabled: true, priority: 1 },
   middleeast: { name: "Middle East", enabled: true, priority: 1 },
