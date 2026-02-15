@@ -126,7 +126,7 @@ import {
   MobileWarningModal,
   PizzIntIndicator,
   GdeltIntelPanel,
-  LiveNewsPanel,
+  StreamingLogPanel,
   IntelligenceGapBadge,
   RuntimeConfigPanel,
   InsightsPanel,
@@ -148,6 +148,7 @@ import { PIPELINES } from "@/config/pipelines";
 import { isDesktopRuntime } from "@/services/runtime";
 
 import type { PredictionMarket, MarketData, ClusteredEvent } from "@/types";
+import type { StreamingLogEvent } from "@/components/StreamingLogPanel";
 
 export class App {
   private container: HTMLElement;
@@ -194,6 +195,7 @@ export class App {
   private criticalBannerEl: HTMLElement | null = null;
   private countryIntelModal: CountryIntelModal | null = null;
   private readonly isDesktopApp = isDesktopRuntime();
+  private streamingLog: StreamingLogPanel | null = null;
 
   constructor(containerId: string) {
     const el = document.getElementById(containerId);
@@ -1758,8 +1760,8 @@ export class App {
       this.panels["satellite-fires"] = satelliteFiresPanel;
     }
 
-    const liveNewsPanel = new LiveNewsPanel();
-    this.panels["live-news"] = liveNewsPanel;
+    this.streamingLog = new StreamingLogPanel();
+    this.panels["live-news"] = this.streamingLog;
 
     const runtimeConfigPanel = new RuntimeConfigPanel({
       mode: this.isDesktopApp ? "alert" : "full",
@@ -1794,13 +1796,8 @@ export class App {
       panelOrder = valid;
     }
 
-    // CRITICAL: live-news MUST be first for CSS Grid layout (spans 2 columns)
-    // Move it to position 0 if it exists and isn't already first
-    const liveNewsIdx = panelOrder.indexOf("live-news");
-    if (liveNewsIdx > 0) {
-      panelOrder.splice(liveNewsIdx, 1);
-      panelOrder.unshift("live-news");
-    }
+    // Note: live-news (now Event Stream) no longer needs to be first
+    // It's a normal-size panel, not a 2-column video player
 
     // Desktop configuration should stay easy to reach in Tauri builds.
     if (this.isDesktopApp) {
@@ -2835,6 +2832,17 @@ export class App {
     // Update map hotspots
     this.map?.updateHotspotActivity(this.allNews);
 
+    // Push top news items to streaming log
+    this.pushToEventStream(
+      collectedNews.slice(0, 30).map((n) => ({
+        id: `news-${n.link}`,
+        timestamp: n.pubDate,
+        source: "news" as const,
+        title: n.title,
+        location: n.source,
+      })),
+    );
+
     // Update monitors
     this.updateMonitorResults();
 
@@ -2940,6 +2948,26 @@ export class App {
       });
       this.statusPanel?.updateApi("NASA EONET", { status: "ok" });
       this.map?.setLayerReady("natural", events.length > 0);
+      // Push to streaming log
+      const naturalSourceMap: Record<string, StreamingLogEvent["source"]> = {
+        wildfires: "fire",
+        volcanoes: "volcano",
+        earthquakes: "earthquake",
+        severeStorms: "weather",
+        floods: "weather",
+      };
+      this.pushToEventStream(
+        events.map((e) => ({
+          id: `natural-${e.id}`,
+          timestamp: e.date,
+          source: naturalSourceMap[e.category] || "natural",
+          title: e.title,
+          location: e.sourceName || undefined,
+          severity: e.magnitude && e.magnitude > 5 ? "high" : "medium",
+          lat: e.lat,
+          lon: e.lon,
+        })),
+      );
     } catch (error) {
       this.map?.setNaturalEvents([]);
       this.statusPanel?.updateFeed("EONET", {
@@ -2961,6 +2989,24 @@ export class App {
         itemCount: alerts.length,
       });
       dataFreshness.recordUpdate("weather", alerts.length);
+      // Push to streaming log
+      this.pushToEventStream(
+        alerts.map((a) => ({
+          id: `weather-${a.id}`,
+          timestamp: a.onset,
+          source: "weather" as const,
+          title: `${a.severity} ${a.event}: ${a.headline}`,
+          location: a.areaDesc,
+          severity:
+            a.severity === "Extreme"
+              ? "critical"
+              : a.severity === "Severe"
+                ? "high"
+                : "medium",
+          lat: a.centroid?.[1],
+          lon: a.centroid?.[0],
+        })),
+      );
     } catch (error) {
       this.map?.setLayerReady("weather", false);
       this.statusPanel?.updateFeed("Weather", { status: "error" });
@@ -3000,6 +3046,24 @@ export class App {
           ingestOutagesForCII(outages);
           signalAggregator.ingestOutages(outages);
           dataFreshness.recordUpdate("outages", outages.length);
+          // Push to streaming log
+          this.pushToEventStream(
+            outages.map((o) => ({
+              id: `outage-${o.id}`,
+              timestamp: o.pubDate,
+              source: "outage" as const,
+              title: `${o.severity.toUpperCase()} internet outage: ${o.title}`,
+              location: o.country,
+              severity:
+                o.severity === "total"
+                  ? "critical"
+                  : o.severity === "major"
+                    ? "high"
+                    : "medium",
+              lat: o.lat,
+              lon: o.lon,
+            })),
+          );
           // Update map only if layer is visible
           if (this.mapLayers.outages) {
             this.map?.setOutages(outages);
@@ -3044,6 +3108,24 @@ export class App {
                 : undefined,
           });
         }
+        // Push to streaming log
+        this.pushToEventStream(
+          protestData.events.slice(0, 50).map((e) => ({
+            id: `protest-${e.id}`,
+            timestamp: e.time,
+            source: "conflict" as const,
+            title: e.title,
+            location: e.city ? `${e.city}, ${e.country}` : e.country,
+            severity:
+              e.severity === "high"
+                ? "high"
+                : e.severity === "medium"
+                  ? "medium"
+                  : "low",
+            lat: e.lat,
+            lon: e.lon,
+          })),
+        );
         return protestData.events;
       } catch (error) {
         console.error("[Intelligence] Protests fetch failed:", error);
@@ -3145,6 +3227,33 @@ export class App {
               itemCount: militaryCount,
             });
           }
+          // Push military events to streaming log
+          const milEvents: StreamingLogEvent[] = [];
+          for (const f of flightData.flights.slice(0, 30)) {
+            milEvents.push({
+              id: `flight-${f.id}`,
+              timestamp: f.lastSeen,
+              source: "military",
+              title: `${f.operator} ${f.aircraftModel || f.aircraftType} ${f.callsign}`,
+              location: f.operatorCountry,
+              lat: f.lat,
+              lon: f.lon,
+            });
+          }
+          for (const v of vesselData.vessels.slice(0, 20)) {
+            milEvents.push({
+              id: `vessel-${v.id}`,
+              timestamp: v.lastAisUpdate,
+              source: "military",
+              title: `${v.operator} ${v.vesselType} ${v.name}`,
+              location: v.nearChokepoint || v.operatorCountry,
+              severity: v.isDark ? "high" : undefined,
+              lat: v.lat,
+              lon: v.lon,
+            });
+          }
+          this.pushToEventStream(milEvents);
+
           // Detect military airlift surges and foreign presence (suppress during learning mode)
           if (!isInLearningMode()) {
             const surgeAlerts = analyzeFlightsForSurge(flightData.flights);
@@ -3246,6 +3355,26 @@ export class App {
       });
       if (hasData) {
         dataFreshness.recordUpdate("ais", shippingCount);
+      }
+      // Push AIS disruptions to streaming log
+      if (disruptions.length > 0) {
+        this.pushToEventStream(
+          disruptions.map((d) => ({
+            id: `ais-${d.id}`,
+            timestamp: new Date(),
+            source: "shipping" as const,
+            title: `${d.type}: ${d.description}`,
+            location: d.region || d.name,
+            severity:
+              d.severity === "high"
+                ? "high"
+                : d.severity === "elevated"
+                  ? "medium"
+                  : "low",
+            lat: d.lat,
+            lon: d.lon,
+          })),
+        );
       }
     } catch (error) {
       this.map?.setLayerReady("ais", false);
@@ -3575,6 +3704,13 @@ export class App {
   private updateMonitorResults(): void {
     const monitorPanel = this.panels["monitors"] as MonitorPanel;
     monitorPanel.renderResults(this.allNews);
+  }
+
+  /**
+   * Push events to the streaming log panel
+   */
+  private pushToEventStream(events: StreamingLogEvent[]): void {
+    this.streamingLog?.addEvents(events);
   }
 
   private async runCorrelationAnalysis(): Promise<void> {

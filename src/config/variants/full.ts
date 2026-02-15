@@ -17,7 +17,7 @@ export * from "../entities";
 // Panel configuration for geopolitical analysis
 export const DEFAULT_PANELS: Record<string, PanelConfig> = {
   map: { name: "Global Map", enabled: true, priority: 1 },
-  "live-news": { name: "Live News", enabled: true, priority: 1 },
+  "live-news": { name: "Event Stream", enabled: true, priority: 1 },
   intel: { name: "Intel Feed", enabled: true, priority: 1 },
   "gdelt-intel": { name: "Live Intelligence", enabled: true, priority: 1 },
   cii: { name: "Country Instability", enabled: true, priority: 1 },

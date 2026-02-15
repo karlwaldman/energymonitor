@@ -15,7 +15,7 @@ export * from "../ports";
 export const DEFAULT_PANELS: Record<string, PanelConfig> = {
   map: { name: "Energy Map", enabled: true, priority: 1 },
   "opa-prices": { name: "Commodity Prices", enabled: true, priority: 1 },
-  "live-news": { name: "Energy Headlines", enabled: true, priority: 1 },
+  "live-news": { name: "Event Stream", enabled: true, priority: 1 },
   insights: { name: "AI Insights", enabled: true, priority: 1 },
   energy: { name: "Energy & Resources", enabled: true, priority: 1 },
   commodities: { name: "Commodities", enabled: true, priority: 1 },

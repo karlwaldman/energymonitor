@@ -21,6 +21,7 @@ export * from "./MobileWarningModal";
 export * from "./PizzIntIndicator";
 export * from "./GdeltIntelPanel";
 export * from "./LiveNewsPanel";
+export * from "./StreamingLogPanel";
 export * from "./IntelligenceGapBadge";
 export * from "./RuntimeConfigPanel";
 export * from "./InsightsPanel";
