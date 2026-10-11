@@ -1,3 +1,4 @@
+import { capturePublicPageview } from './lib/posthog';
 import './styles/main.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { inject } from '@vercel/analytics';
@@ -44,3 +45,12 @@ if (!('__TAURI_INTERNALS__' in window) && !('__TAURI__' in window)) {
     });
   });
 }
+
+// Cookieless public-root pageview; desktop, preview, DNT and GPC never capture.
+void capturePublicPageview(import.meta.env.VITE_POSTHOG_KEY, {
+ hostname: location.hostname, pathname: location.pathname, referrer: document.referrer,
+ doNotTrack: navigator.doNotTrack,
+ globalPrivacyControl: (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl,
+ automation: navigator.webdriver || new URLSearchParams(location.search).get('telemetry') === 'smoke',
+ distinctId: crypto.randomUUID(),
+}).then(result => { if (result === 'failed') console.warn('EnergyMonitor analytics delivery failed'); });
