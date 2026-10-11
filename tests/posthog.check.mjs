@@ -1,3 +1,5 @@
+import { createServer } from 'node:http';
+import { once } from 'node:events';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { capturePublicPageview } from '../src/lib/posthog.ts';
@@ -29,4 +31,19 @@ test('non-2xx and network failures do not break browsing',async()=>{
 test('smoke events carry automation exclusion',async()=>{
  let body;await capturePublicPageview('token',{...context,automation:true},async(_,request)=>{body=JSON.parse(request.body);return {ok:true}});
  assert.equal(body.properties.traffic_type,'automation');
+});
+
+test('actual HTTP intake receives one sanitized event and rejects failed delivery', async () => {
+ const received=[];let status=200;
+ const server=createServer(async(req,res)=>{let raw='';for await(const chunk of req)raw+=chunk;received.push(JSON.parse(raw));res.writeHead(status);res.end('{}');});
+ server.listen(0,'127.0.0.1');await once(server,'listening');
+ const endpoint=`http://127.0.0.1:${server.address().port}/capture`;
+ const send=(_url,init)=>fetch(endpoint,init);
+ try {
+  assert.equal(await capturePublicPageview('public-write-token',{...context,pathname:'/'},send),'sent');
+  assert.equal(received.length,1);assert.equal(received[0].event,'$pageview');
+  assert.equal(received[0].properties.$current_url,`https://${context.hostname}/`);
+  assert.doesNotMatch(JSON.stringify(received[0]),/private@example|secret=value|#token/);
+  status=503;assert.equal(await capturePublicPageview('public-write-token',{...context,pathname:'/'},send),'failed');
+ } finally { server.closeAllConnections();await new Promise(resolve=>server.close(resolve)); }
 });
